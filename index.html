@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Barra · Don Gaviota</title>
+<meta name="theme-color" content="#0C1A1D">
+<link rel="manifest" href='data:application/manifest+json,{"name":"Inventario Barra · Don Gaviota","short_name":"Barra DG","start_url":".","display":"standalone","background_color":"%230C1A1D","theme_color":"%230C1A1D","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%230C1A1D%27/%3E%3Crect x=%2740%27 y=%2712%27 width=%2720%27 height=%2718%27 rx=%274%27 fill=%27%23E9A13B%27/%3E%3Crect x=%2728%27 y=%2730%27 width=%2744%27 height=%2758%27 rx=%2710%27 fill=%27none%27 stroke=%27%23E9A13B%27 stroke-width=%276%27/%3E%3Crect x=%2734%27 y=%2758%27 width=%2732%27 height=%2724%27 rx=%275%27 fill=%27%23E9A13B%27/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any"}]}'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0C1A1D; --panel:#132528; --panel2:#1A3236; --line:#25464B;
+  --text:#EFE9DA; --muted:#8FA8A6;
+  --amber:#E9A13B; --amber-soft:#F3C777;
+  --green:#3FA37C; --red:#DF5F4C; --blue:#57A7BE;
+  --r:14px;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Barlow',system-ui,sans-serif; font-size:15px;
+  min-height:100vh;
+  background-image:radial-gradient(ellipse 90% 50% at 50% -10%, #16333A 0%, transparent 60%);
+}
+h1,h2,h3,.disp{font-family:'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.06em}
+button{font-family:inherit; cursor:pointer}
+input,select,textarea{
+  font-family:inherit; font-size:15px; color:var(--text);
+  background:var(--bg); border:1px solid var(--line); border-radius:10px;
+  padding:9px 11px; width:100%; outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--amber)}
+input[type=number]{font-variant-numeric:tabular-nums}
+label{display:block; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px}
+a{color:var(--amber-soft)}
+:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+
+/* ---------- login ---------- */
+#loginView{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px}
+.loginCard{width:100%; max-width:380px; background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:34px 28px}
+.brandMark{display:flex; align-items:center; gap:14px; margin-bottom:26px}
+.brandMark svg{flex:none}
+.brandMark h1{font-size:30px; line-height:.95; color:var(--amber)}
+.brandMark small{display:block; font-family:'Barlow'; text-transform:none; letter-spacing:0; color:var(--muted); font-size:13px; margin-top:4px}
+.loginCard .field{margin-bottom:14px}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  border:1px solid var(--line); background:var(--panel2); color:var(--text);
+  border-radius:10px; padding:10px 16px; font-size:14px; font-weight:600;
+}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber); border-color:var(--amber); color:#1C1204}
+.btn.primary:hover{background:var(--amber-soft)}
+.btn.danger{color:var(--red); border-color:#5A2B24}
+.btn.small{padding:6px 11px; font-size:13px; border-radius:8px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.warn{background:#3A2A12; border:1px solid #6B4E1E; color:var(--amber-soft); border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:14px}
+.err{color:var(--red); font-size:13px; margin-top:10px; min-height:18px}
+
+/* ---------- shell ---------- */
+#appView{display:none; padding-bottom:40px}
+header.top{
+  position:sticky; top:0; z-index:40; background:rgba(12,26,29,.92); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:12px; padding:10px 16px;
+}
+header.top h1{font-size:21px; color:var(--amber); white-space:nowrap}
+header.top .who{margin-left:auto; text-align:right; font-size:12px; color:var(--muted); line-height:1.25}
+header.top .who b{color:var(--text); font-size:13px}
+nav.tabs{
+  display:flex; gap:6px; overflow-x:auto; padding:10px 16px 4px;
+  scrollbar-width:none; position:sticky; top:49px; z-index:39;
+  background:linear-gradient(var(--bg) 80%, transparent);
+}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  flex:none; background:var(--panel); border:1px solid var(--line); color:var(--muted);
+  border-radius:999px; padding:8px 15px; font-size:13px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.05em; font-family:'Barlow Condensed';
+}
+nav.tabs button.on{background:var(--amber); border-color:var(--amber); color:#1C1204}
+nav.tabs button .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--red); margin-left:6px; vertical-align:2px}
+main{max-width:1080px; margin:0 auto; padding:14px 16px}
+.view{display:none}
+.view.on{display:block; animation:fadeUp .18s ease}
+@keyframes fadeUp{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+
+/* ---------- generic panels ---------- */
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:16px; margin-bottom:14px}
+.panel h2{font-size:18px; color:var(--amber-soft); margin-bottom:12px}
+.grid{display:grid; gap:12px}
+.g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:760px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:430px){.g2m1{grid-template-columns:1fr}}
+.chip{display:inline-block; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+  padding:3px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted)}
+.chip.amber{color:var(--amber); border-color:#6B4E1E}
+.chip.red{color:var(--red); border-color:#5A2B24; background:#2A1512}
+.chip.green{color:var(--green); border-color:#1F4A3B}
+.chip.blue{color:var(--blue); border-color:#274B57}
+.muted{color:var(--muted)} .num{font-variant-numeric:tabular-nums}
+.rowflex{display:flex; gap:10px; flex-wrap:wrap; align-items:end}
+.rowflex .field{flex:1; min-width:130px}
+.tableWrap{overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:14px}
+th{font-family:'Barlow Condensed'; text-transform:uppercase; letter-spacing:.06em; font-size:12px;
+  color:var(--muted); text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap}
+td{padding:9px 10px; border-bottom:1px solid #1B3236; vertical-align:middle}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right}
+
+/* ---------- KPIs ---------- */
+.kpi{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:14px}
+.kpi .v{font-family:'Barlow Condensed'; font-size:32px; font-weight:700; line-height:1; color:var(--text)}
+.kpi .v.red{color:var(--red)} .kpi .v.amber{color:var(--amber)} .kpi .v.green{color:var(--green)}
+.kpi .l{font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin-top:6px}
+.chartBox{position:relative; height:240px}
+
+/* ---------- stock cards + botella (elemento firma) ---------- */
+.stockCard{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:12px 14px; display:flex; gap:14px; align-items:center; margin-bottom:10px;
+}
+.stockCard.low{border-color:#5A2B24; box-shadow:inset 3px 0 0 var(--red)}
+.stockCard .info{flex:1; min-width:0}
+.stockCard .name{font-weight:600; font-size:15px}
+.stockCard .meta{font-size:12px; color:var(--muted); margin-top:2px}
+.stockCard .qty{text-align:right; flex:none}
+.stockCard .qty .bots{font-family:'Barlow Condensed'; font-size:26px; font-weight:700; line-height:1}
+.stockCard .qty .sub{font-size:12px; color:var(--muted); margin-top:2px}
+.bottleWrap{flex:none; display:flex; align-items:flex-end}
+.ubChips{margin-top:6px; display:flex; gap:5px; flex-wrap:wrap}
+.ubChips .chip{font-size:10px; padding:2px 7px}
+
+/* ---------- modal / toast ---------- */
+.overlay{position:fixed; inset:0; background:rgba(5,12,14,.72); z-index:80;
+  display:none; align-items:flex-start; justify-content:center; padding:30px 16px; overflow:auto}
+.overlay.on{display:flex}
+.modal{background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px;
+  width:100%; max-width:520px; animation:fadeUp .18s ease}
+.modal h3{font-size:20px; color:var(--amber-soft); margin-bottom:14px}
+.modal .field{margin-bottom:12px}
+.modal .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:16px}
+#toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(80px);
+  background:var(--panel2); border:1px solid var(--line); color:var(--text);
+  padding:11px 18px; border-radius:12px; font-size:14px; z-index:100; opacity:0; transition:.25s; max-width:92vw}
+#toast.on{opacity:1; transform:translateX(-50%)}
+#toast.ok{border-color:var(--green)} #toast.bad{border-color:var(--red)}
+
+/* ---------- conteo ---------- */
+.diffPos{color:var(--green)} .diffNeg{color:var(--red)}
+.inpMini{width:76px; padding:6px 8px; text-align:right}
+@media(max-width:560px){ .inpMini{width:62px} header.top h1{font-size:18px} }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginView">
+  <div class="loginCard">
+    <div class="brandMark">
+      <svg width="46" height="46" viewBox="0 0 100 100" aria-hidden="true">
+        <rect width="100" height="100" rx="22" fill="#132528"/>
+        <rect x="40" y="12" width="20" height="18" rx="4" fill="#E9A13B"/>
+        <rect x="28" y="30" width="44" height="58" rx="10" fill="none" stroke="#E9A13B" stroke-width="6"/>
+        <rect x="34" y="58" width="32" height="24" rx="5" fill="#E9A13B"/>
+      </svg>
+      <h1>Barra<small>Inventario de líquidos · Don Gaviota</small></h1>
+    </div>
+    <div id="cfgWarn" class="warn" style="display:none">
+      ⚠️ Falta configurar la <b>anon key</b> de Supabase en el archivo (busca <code>SUPABASE_ANON_KEY</code>).
+    </div>
+    <div class="field"><label for="inUser">Usuario</label><input id="inUser" autocomplete="username"></div>
+    <div class="field"><label for="inPass">Clave</label><input id="inPass" type="password" autocomplete="current-password"></div>
+    <button class="btn primary block" onclick="login()">Entrar</button>
+    <div id="loginErr" class="err" role="alert"></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView">
+  <header class="top">
+    <h1>⚓ Barra · Don Gaviota</h1>
+    <div class="who"><b id="whoName"></b><br><span id="whoRol"></span></div>
+    <button class="btn small" onclick="logout()">Salir</button>
+  </header>
+
+  <nav class="tabs" id="tabsNav"></nav>
+
+  <main>
+    <!-- ===== DASHBOARD ===== -->
+    <section class="view" id="view-dashboard">
+      <div class="grid g4" id="kpiGrid"></div>
+      <div class="grid g2 g2m1" style="margin-top:14px">
+        <div class="panel"><h2>Movimientos · últimos 14 días (ml)</h2><div class="chartBox"><canvas id="chMov"></canvas></div></div>
+        <div class="panel"><h2>Mermas por categoría · 30 días</h2><div class="chartBox"><canvas id="chMerma"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <h2>🔔 Alertas de stock mínimo</h2>
+        <div id="alertList"></div>
+      </div>
+    </section>
+
+    <!-- ===== STOCK ===== -->
+    <section class="view" id="view-stock">
+      <div class="panel">
+        <div class="rowflex">
+          <div class="field"><label>Ubicación</label><select id="stUbi" onchange="renderStock()"></select></div>
+          <div class="field"><label>Categoría</label><select id="stCat" onchange="renderStock()"></select></div>
+          <div class="field" style="flex:2"><label>Buscar</label><input id="stBuscar" placeholder="Nombre del producto…" oninput="renderStock()"></div>
+          <button class="btn small" onclick="exportStockXLS()">📊 Excel</button>
+        </div>
+      </div>
+      <div id="stockList"></div>
+    </section>
+
+    <!-- ===== MOVIMIENTOS ===== -->
+    <section class="view" id="view-movimientos">
+      <div class="panel">
+        <h2>Registrar movimiento</h2>
+        <div class="rowflex">
+          <div class="field"><label>Tipo</label><select id="mvTipo" onchange="mvTipoChanged()"></select></div>
+          <div class="field" style="flex:2"><label>Producto</label><select id="mvProd" onchange="mvProdChanged()"></select></div>
+        </div>
+        <div class="rowflex" style="margin-top:10px">
+          <div class="field" id="mvOrigenBox"><label id="mvOrigenLbl">Ubicación</label><select id="mvOrigen"></select></div>
+          <div class="field" id="mvDestinoBox" style="display:none"><label>Destino</label><select id="mvDestino"></select></div>
+        </div>
+        <div class="rowflex" style="margin-top:10px">
+          <div class="field"><label>Botellas completas</label><input id="mvBot" type="number" min="0" step="1" value="0"></div>
+          <div class="field"><label>Cantidad suelta</label><input id="mvMl" type="number" min="0" step="any" value="0"></div>
+          <div class="field" style="max-width:110px"><label>Unidad</label>
+            <select id="mvUnidad"><option value="ml">ml</option><option value="oz">oz</option></select>
+          </div>
+          <div class="field" style="flex:2"><label>Motivo / nota</label><input id="mvMotivo" placeholder="Ej: venta turno noche, botella quebrada…"></div>
+          <button class="btn primary" onclick="guardarMovimiento()">Guardar</button>
+        </div>
+        <div class="muted" id="mvHint" style="font-size:12px; margin-top:8px"></div>
+      </div>
+
+      <div class="panel">
+        <div class="rowflex" style="margin-bottom:10px">
+          <h2 style="margin:0; flex:1">Historial</h2>
+          <div class="field" style="max-width:150px"><label>Desde</label><input id="fDesde" type="date" onchange="renderMovs()"></div>
+          <div class="field" style="max-width:150px"><label>Hasta</label><input id="fHasta" type="date" onchange="renderMovs()"></div>
+          <div class="field" style="max-width:150px"><label>Tipo</label><select id="fTipo" onchange="renderMovs()">
+            <option value="">Todos</option><option>entrada</option><option>salida</option><option>merma</option><option>traslado</option><option>ajuste</option>
+          </select></div>
+          <button class="btn small" onclick="exportMovsXLS()">📊 Excel</button>
+        </div>
+        <div class="tableWrap"><table>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Origen → Destino</th><th class="num">Botellas</th><th class="num">ml</th><th>Motivo</th><th>Usuario</th></tr></thead>
+          <tbody id="movBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== CONTEO ===== -->
+    <section class="view" id="view-conteo">
+      <div class="panel">
+        <h2>Inventario físico</h2>
+        <div class="rowflex">
+          <div class="field"><label>Ubicación a contar</label><select id="cnUbi"></select></div>
+          <button class="btn primary" onclick="iniciarConteo()">Iniciar conteo</button>
+        </div>
+      </div>
+      <div class="panel" id="cnPanel" style="display:none">
+        <h2 id="cnTitulo"></h2>
+        <p class="muted" style="font-size:13px; margin-bottom:10px">Ingresa lo contado físicamente. Al cerrar, el stock se ajusta al valor físico y las diferencias quedan registradas como <b>ajuste</b>.</p>
+        <div class="tableWrap"><table>
+          <thead><tr><th>Producto</th><th class="num">Teórico<br>(bot / ml)</th><th class="num">Físico bot.</th><th class="num">Físico ml</th><th class="num">Dif. total ml</th></tr></thead>
+          <tbody id="cnBody"></tbody>
+        </table></div>
+        <div class="rowflex" style="margin-top:14px">
+          <div class="field" style="flex:2"><label>Observación</label><input id="cnObs" placeholder="Opcional"></div>
+          <button class="btn" onclick="cancelarConteo()">Cancelar</button>
+          <button class="btn primary" onclick="cerrarConteo()">Cerrar conteo y ajustar</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Conteos anteriores</h2>
+        <div class="tableWrap"><table>
+          <thead><tr><th>Fecha</th><th>Ubicación</th><th>Usuario</th><th>Observación</th><th></th></tr></thead>
+          <tbody id="cnHist"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== PRODUCTOS ===== -->
+    <section class="view" id="view-productos">
+      <div class="panel">
+        <div class="rowflex" style="margin-bottom:10px">
+          <h2 style="margin:0; flex:1">Catálogo de productos</h2>
+          <label style="display:flex; align-items:center; gap:6px; margin:0; text-transform:none; font-size:13px">
+            <input type="checkbox" id="prVerInactivos" style="width:auto" onchange="renderProductos()"> Ver inactivos
+          </label>
+          <button class="btn primary small" onclick="abrirProducto(null)">＋ Nuevo producto</button>
+        </div>
+        <div class="tableWrap"><table>
+          <thead><tr><th>Producto</th><th>Categoría</th><th class="num">Capacidad ml</th><th class="num">Mínimo (bot)</th><th class="num">Costo CLP</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="prBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== USUARIOS ===== -->
+    <section class="view" id="view-usuarios">
+      <div class="panel">
+        <div class="rowflex" style="margin-bottom:10px">
+          <h2 style="margin:0; flex:1">Usuarios</h2>
+          <button class="btn primary small" onclick="abrirUsuario(null)">＋ Nuevo usuario</button>
+        </div>
+        <div class="tableWrap"><table>
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="usBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== MODAL PRODUCTO ===== -->
+<div class="overlay" id="ovProducto">
+  <div class="modal">
+    <h3 id="prModalTit">Nuevo producto</h3>
+    <div class="field"><label>Nombre</label><input id="pNombre"></div>
+    <div class="grid g2">
+      <div class="field"><label>Categoría</label><select id="pCategoria"></select></div>
+      <div class="field"><label>Capacidad por botella (ml)</label><input id="pCapacidad" type="number" min="1" step="any" value="750"></div>
+      <div class="field"><label>Stock mínimo (botellas)</label><input id="pMinimo" type="number" min="0" step="any" value="2"></div>
+      <div class="field"><label>Costo por botella (CLP)</label><input id="pCosto" type="number" min="0" step="1" value="0"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="cerrarOverlay('ovProducto')">Cancelar</button>
+      <button class="btn primary" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL USUARIO ===== -->
+<div class="overlay" id="ovUsuario">
+  <div class="modal">
+    <h3 id="usModalTit">Nuevo usuario</h3>
+    <div class="grid g2">
+      <div class="field"><label>Usuario</label><input id="uUsuario" autocomplete="off"></div>
+      <div class="field"><label>Clave</label><input id="uClave" autocomplete="off"></div>
+      <div class="field"><label>Nombre</label><input id="uNombre"></div>
+      <div class="field"><label>Rol</label><select id="uRol">
+        <option value="barman">Barman</option><option value="bodeguero">Bodeguero</option><option value="supervisor">Supervisor</option>
+      </select></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="cerrarOverlay('ovUsuario')">Cancelar</button>
+      <button class="btn primary" onclick="guardarUsuario()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL DETALLE CONTEO ===== -->
+<div class="overlay" id="ovConteoDet">
+  <div class="modal" style="max-width:640px">
+    <h3 id="cdTit">Detalle de conteo</h3>
+    <div class="tableWrap"><table>
+      <thead><tr><th>Producto</th><th class="num">Teórico bot/ml</th><th class="num">Físico bot/ml</th><th class="num">Dif. ml</th></tr></thead>
+      <tbody id="cdBody"></tbody>
+    </table></div>
+    <div class="actions"><button class="btn" onclick="cerrarOverlay('ovConteoDet')">Cerrar</button></div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+/* =====================================================================
+   CONFIGURACIÓN — misma receta que Facturas
+   ===================================================================== */
+const SUPABASE_URL = 'https://wyzsmvkwdnxfwuintoqt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind5enNtdmt3ZG54Znd1aW50b3F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTc0MjYsImV4cCI6MjA5NDA5MzQyNn0.r05WgUOFo3BVBSXopyHj-dO821xbfhRygiNARAyWY2Q';
+
+let sbClient = null;
+if (!SUPABASE_ANON_KEY.startsWith('PEGA_AQUI')) {
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.addEventListener('DOMContentLoaded', () => document.getElementById('cfgWarn').style.display = 'block');
+}
+
+const OZ = 29.5735;
+const CATEGORIAS = ['Bajativos y Licores','Bebidas y Aguas','Cervezas','Destilados','Vino Blanco','Vino Otras Cepas','Vino Tinto','Espumantes'];
+const PERMISOS = {
+  barman:     { tabs:['dashboard','stock','movimientos'],                                tipos:['salida','merma'] },
+  bodeguero:  { tabs:['dashboard','stock','movimientos','conteo'],                       tipos:['entrada','salida','merma','traslado'] },
+  supervisor: { tabs:['dashboard','stock','movimientos','conteo','productos','usuarios'],tipos:['entrada','salida','merma','traslado'] },
+};
+const TAB_LABELS = { dashboard:'Dashboard', stock:'Stock', movimientos:'Movimientos', conteo:'Conteo', productos:'Productos', usuarios:'Usuarios' };
+const TIPO_CHIP = { entrada:'green', salida:'blue', merma:'red', traslado:'amber', ajuste:'' };
+
+const S = { user:null, productos:[], ubicaciones:[], stock:[], movimientos:[], conteos:[], conteoActivo:null, editProdId:null, editUserId:null };
+let chMov = null, chMerma = null, rtChannel = null;
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtCLP = n => '$' + Math.round(n || 0).toLocaleString('es-CL');
+const r1 = n => Math.round((n || 0) * 10) / 10;
+const fmtMl = n => (n >= 1000 ? r1(n/1000).toLocaleString('es-CL') + ' L' : r1(n).toLocaleString('es-CL') + ' ml');
+const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone:'America/Santiago' });
+const fmtFecha = f => { const [y,m,d] = String(f).split('-'); return `${d}-${m}-${y}`; };
+const prodDe = id => S.productos.find(p => p.id === id);
+const ubiDe  = id => S.ubicaciones.find(u => u.id === id);
+
+function toast(msg, tipo='ok'){
+  const t = $('toast'); t.textContent = msg; t.className = 'on ' + tipo;
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = '', 2600);
+}
+function cerrarOverlay(id){ $(id).classList.remove('on'); }
+
+/* Stock helpers: botellas cerradas + ml de abiertas */
+function stockRow(prodId, ubiId){ return S.stock.find(s => s.producto_id === prodId && s.ubicacion_id === ubiId); }
+function stockAgg(prodId, ubiId=null){
+  const rows = S.stock.filter(s => s.producto_id === prodId && (!ubiId || s.ubicacion_id === ubiId));
+  return rows.reduce((a,s) => ({ botellas:a.botellas + Number(s.botellas), ml:a.ml + Number(s.ml_abiertos) }), { botellas:0, ml:0 });
+}
+function botEq(prod, agg){ return agg.botellas + (prod.capacidad_ml > 0 ? agg.ml / prod.capacidad_ml : 0); }
+function bajoMinimo(prod){ return botEq(prod, stockAgg(prod.id)) < Number(prod.stock_minimo) - 1e-9; }
+
+/* Elemento firma: botella SVG con nivel de líquido de la botella abierta */
+function bottleSVG(pct){
+  pct = Math.max(0, Math.min(1, pct || 0));
+  const h = 34 * pct, y = 56 - h;
+  return `<svg width="26" height="60" viewBox="0 0 26 60" aria-hidden="true">
+    <rect x="10" y="3" width="6" height="4" rx="1.5" fill="var(--line)"/>
+    <path d="M10 8 h6 v7 c4 2 6 5 6 9 v29 a5 5 0 0 1 -5 5 h-8 a5 5 0 0 1 -5 -5 v-29 c0-4 2-7 6-9 z"
+          fill="none" stroke="var(--line)" stroke-width="2"/>
+    <clipPath id="bc${Math.round(pct*1000)}"><path d="M10 8 h6 v7 c4 2 6 5 6 9 v29 a5 5 0 0 1 -5 5 h-8 a5 5 0 0 1 -5 -5 v-29 c0-4 2-7 6-9 z"/></clipPath>
+    <rect x="3" y="${y}" width="20" height="${h+2}" fill="var(--amber)" opacity=".9" clip-path="url(#bc${Math.round(pct*1000)})"/>
+  </svg>`;
+}
+
+/* =====================================================================
+   SESIÓN
+   ===================================================================== */
+async function login(){
+  const u = $('inUser').value.trim(), p = $('inPass').value;
+  $('loginErr').textContent = '';
+  if (!sbClient) { $('loginErr').textContent = 'Configura la anon key de Supabase primero.'; return; }
+  if (!u || !p)  { $('loginErr').textContent = 'Ingresa usuario y clave.'; return; }
+  const { data, error } = await sbClient.from('barra_usuarios')
+    .select('*').eq('usuario', u).eq('clave', p).eq('activo', true).maybeSingle();
+  if (error) { $('loginErr').textContent = 'Error de conexión: ' + error.message; return; }
+  if (!data) { $('loginErr').textContent = 'Usuario o clave incorrectos.'; return; }
+  S.user = data;
+  localStorage.setItem('barraDG_user', JSON.stringify(data));
+  await iniciarApp();
+}
+function logout(){
+  localStorage.removeItem('barraDG_user');
+  if (rtChannel) sbClient.removeChannel(rtChannel);
+  location.reload();
+}
+
+async function iniciarApp(){
+  $('loginView').style.display = 'none';
+  $('appView').style.display = 'block';
+  $('whoName').textContent = S.user.nombre;
+  $('whoRol').textContent = S.user.rol.toUpperCase();
+  montarTabs();
+  await cargarTodo();
+  suscribirRealtime();
+  irA('dashboard');
+}
+
+function montarTabs(){
+  const tabs = PERMISOS[S.user.rol].tabs;
+  $('tabsNav').innerHTML = tabs.map(t =>
+    `<button id="tab-${t}" onclick="irA('${t}')">${TAB_LABELS[t]}${t==='dashboard' ? '<span id="alertDot" style="display:none" class="dot"></span>' : ''}</button>`
+  ).join('');
+}
+function irA(tab){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('on'));
+  $('view-' + tab).classList.add('on');
+  $('tab-' + tab).classList.add('on');
+  ({ dashboard:renderDashboard, stock:renderStock, movimientos:renderMovForm, conteo:renderConteoView, productos:renderProductos, usuarios:renderUsuarios })[tab]();
+  if (tab === 'movimientos') renderMovs();
+}
+
+/* =====================================================================
+   CARGA DE DATOS + REALTIME
+   ===================================================================== */
+async function cargarTodo(){
+  const [pr, ub, st, mv, cn] = await Promise.all([
+    sbClient.from('barra_productos').select('*').order('categoria').order('nombre'),
+    sbClient.from('barra_ubicaciones').select('*').eq('activo', true).order('id'),
+    sbClient.from('barra_stock').select('*'),
+    sbClient.from('barra_movimientos').select('*').order('created_at', { ascending:false }).limit(600),
+    sbClient.from('barra_conteos').select('*').order('created_at', { ascending:false }).limit(60),
+  ]);
+  for (const r of [pr,ub,st,mv,cn]) if (r.error) { toast('Error cargando datos: ' + r.error.message, 'bad'); return; }
+  S.productos = pr.data; S.ubicaciones = ub.data; S.stock = st.data; S.movimientos = mv.data; S.conteos = cn.data;
+  localStorage.setItem('barraDG_cache', JSON.stringify({ t:Date.now(), stock:st.data, productos:pr.data }));
+  llenarSelects();
+}
+let rtTimer = null;
+function suscribirRealtime(){
+  rtChannel = sbClient.channel('barra-rt')
+    .on('postgres_changes', { event:'*', schema:'public', table:'barra_stock' }, refrescoDiferido)
+    .on('postgres_changes', { event:'*', schema:'public', table:'barra_movimientos' }, refrescoDiferido)
+    .subscribe();
+}
+function refrescoDiferido(){
+  clearTimeout(rtTimer);
+  rtTimer = setTimeout(async () => {
+    await cargarTodo();
+    const on = document.querySelector('.view.on');
+    if (on) irA(on.id.replace('view-',''));
+  }, 800);
+}
+
+function llenarSelects(){
+  const opsUbi = S.ubicaciones.map(u => `<option value="${u.id}">${esc(u.nombre)}</option>`).join('');
+  $('stUbi').innerHTML = `<option value="">Todas las ubicaciones</option>` + opsUbi;
+  $('mvOrigen').innerHTML = opsUbi;
+  $('mvDestino').innerHTML = opsUbi;
+  $('cnUbi').innerHTML = opsUbi;
+  $('stCat').innerHTML = `<option value="">Todas las categorías</option>` + CATEGORIAS.map(c => `<option>${c}</option>`).join('');
+  $('pCategoria').innerHTML = CATEGORIAS.map(c => `<option>${c}</option>`).join('');
+  $('mvProd').innerHTML = `<option value="">— Selecciona —</option>` +
+    S.productos.filter(p => p.activo).map(p => `<option value="${p.id}">${esc(p.nombre)} (${p.capacidad_ml} ml)</option>`).join('');
+}
+
+/* =====================================================================
+   DASHBOARD
+   ===================================================================== */
+function renderDashboard(){
+  const activos = S.productos.filter(p => p.activo);
+  const bajos = activos.filter(bajoMinimo);
+  const hoyStr = hoy();
+  const movHoy = S.movimientos.filter(m => m.fecha === hoyStr).length;
+
+  const mesIni = hoyStr.slice(0,8) + '01';
+  let mermaCLP = 0;
+  S.movimientos.filter(m => m.tipo === 'merma' && m.fecha >= mesIni).forEach(m => {
+    const p = prodDe(m.producto_id); if (!p) return;
+    const mlTot = Number(m.botellas) * Number(p.capacidad_ml) + Number(m.ml);
+    mermaCLP += (mlTot / Number(p.capacidad_ml || 1)) * Number(p.precio_costo || 0);
+  });
+
+  $('kpiGrid').innerHTML = `
+    <div class="kpi"><div class="v">${activos.length}</div><div class="l">Productos activos</div></div>
+    <div class="kpi"><div class="v ${bajos.length ? 'red' : 'green'}">${bajos.length}</div><div class="l">Bajo stock mínimo</div></div>
+    <div class="kpi"><div class="v amber">${fmtCLP(mermaCLP)}</div><div class="l">Mermas del mes (est.)</div></div>
+    <div class="kpi"><div class="v">${movHoy}</div><div class="l">Movimientos hoy</div></div>`;
+
+  const dot = $('alertDot'); if (dot) dot.style.display = bajos.length ? 'inline-block' : 'none';
+
+  $('alertList').innerHTML = bajos.length
+    ? bajos.map(p => {
+        const agg = stockAgg(p.id);
+        return `<div class="stockCard low">
+          <div class="bottleWrap">${bottleSVG(botEq(p, agg) / Math.max(p.stock_minimo, 0.01))}</div>
+          <div class="info"><div class="name">${esc(p.nombre)}</div>
+            <div class="meta">${esc(p.categoria)} · mínimo ${r1(p.stock_minimo)} bot.</div></div>
+          <div class="qty"><div class="bots num" style="color:var(--red)">${r1(botEq(p, agg))}</div>
+            <div class="sub">bot. equivalentes</div></div>
+        </div>`;
+      }).join('')
+    : `<p class="muted">Sin alertas: todo el catálogo está sobre su mínimo. 🍾</p>`;
+
+  dibujarGraficos();
+}
+
+function dibujarGraficos(){
+  const dias = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5).toLocaleDateString('en-CA', { timeZone:'America/Santiago' });
+    dias.push(d);
+  }
+  const serie = tipo => dias.map(d =>
+    S.movimientos.filter(m => m.fecha === d && m.tipo === tipo)
+      .reduce((a,m) => { const p = prodDe(m.producto_id); return a + Number(m.botellas) * Number(p?.capacidad_ml || 0) + Number(m.ml); }, 0));
+
+  if (chMov) chMov.destroy();
+  chMov = new Chart($('chMov'), {
+    type:'bar',
+    data:{ labels:dias.map(d => d.slice(8) + '/' + d.slice(5,7)), datasets:[
+      { label:'Entradas', data:serie('entrada'), backgroundColor:'#3FA37C' },
+      { label:'Salidas',  data:serie('salida'),  backgroundColor:'#57A7BE' },
+      { label:'Mermas',   data:serie('merma'),   backgroundColor:'#DF5F4C' },
+    ]},
+    options:{ maintainAspectRatio:false, responsive:true,
+      scales:{ x:{ stacked:true, ticks:{ color:'#8FA8A6' }, grid:{ color:'#1B3236' } },
+               y:{ stacked:true, ticks:{ color:'#8FA8A6' }, grid:{ color:'#1B3236' } } },
+      plugins:{ legend:{ labels:{ color:'#EFE9DA' } } } }
+  });
+
+  const hace30 = new Date(Date.now() - 30 * 864e5).toLocaleDateString('en-CA', { timeZone:'America/Santiago' });
+  const porCat = {};
+  S.movimientos.filter(m => m.tipo === 'merma' && m.fecha >= hace30).forEach(m => {
+    const p = prodDe(m.producto_id); if (!p) return;
+    porCat[p.categoria] = (porCat[p.categoria] || 0) + Number(m.botellas) * Number(p.capacidad_ml) + Number(m.ml);
+  });
+  if (chMerma) chMerma.destroy();
+  chMerma = new Chart($('chMerma'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(porCat), datasets:[{ data:Object.values(porCat),
+      backgroundColor:['#DF5F4C','#E9A13B','#57A7BE','#3FA37C','#F3C777','#8FA8A6'], borderColor:'#132528' }]},
+    options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#EFE9DA' } } } }
+  });
+  if (!Object.keys(porCat).length) {
+    const c = $('chMerma').getContext('2d');
+    c.fillStyle = '#8FA8A6'; c.font = '14px Barlow'; c.textAlign = 'center';
+    c.fillText('Sin mermas en los últimos 30 días', $('chMerma').width / 2, 120);
+  }
+}
+
+/* =====================================================================
+   STOCK
+   ===================================================================== */
+function renderStock(){
+  const ubiId = $('stUbi').value ? Number($('stUbi').value) : null;
+  const cat = $('stCat').value;
+  const q = $('stBuscar').value.trim().toLowerCase();
+  const lista = S.productos.filter(p => p.activo &&
+    (!cat || p.categoria === cat) && (!q || p.nombre.toLowerCase().includes(q)));
+
+  $('stockList').innerHTML = lista.map(p => {
+    const agg = stockAgg(p.id, ubiId);
+    const eq = botEq(p, agg);
+    const low = bajoMinimo(p);
+    const pctAbierta = p.capacidad_ml > 0 ? (agg.ml % p.capacidad_ml) / p.capacidad_ml || (agg.ml > 0 ? 1 : 0) : 0;
+    const chipsUbi = !ubiId ? `<div class="ubChips">` + S.ubicaciones.map(u => {
+        const s = stockRow(p.id, u.id);
+        if (!s || (Number(s.botellas) === 0 && Number(s.ml_abiertos) === 0)) return '';
+        return `<span class="chip">${esc(u.nombre)}: ${r1(s.botellas)} bot${Number(s.ml_abiertos) ? ' + ' + fmtMl(s.ml_abiertos) : ''}</span>`;
+      }).join('') + `</div>` : '';
+    return `<div class="stockCard ${low ? 'low' : ''}">
+      <div class="bottleWrap">${bottleSVG(agg.ml > 0 ? Math.max(pctAbierta, .08) : 0)}</div>
+      <div class="info">
+        <div class="name">${esc(p.nombre)} ${low ? '<span class="chip red">Bajo mínimo</span>' : ''}</div>
+        <div class="meta">${esc(p.categoria)} · ${p.capacidad_ml} ml/bot · mínimo ${r1(p.stock_minimo)} bot</div>
+        ${chipsUbi}
+      </div>
+      <div class="qty">
+        <div class="bots num">${r1(agg.botellas)} <span style="font-size:14px; color:var(--muted)">bot</span></div>
+        <div class="sub num">${agg.ml > 0 ? '+ ' + fmtMl(agg.ml) + ' abiertos' : 'sin abiertas'}</div>
+        <div class="sub num">≈ ${r1(eq)} bot. eq.</div>
+      </div>
+    </div>`;
+  }).join('') || `<div class="panel muted">No hay productos que coincidan con el filtro.</div>`;
+}
+
+function exportStockXLS(){
+  const filas = [];
+  S.productos.filter(p => p.activo).forEach(p => S.ubicaciones.forEach(u => {
+    const s = stockRow(p.id, u.id);
+    if (!s) return;
+    filas.push({ Producto:p.nombre, Categoria:p.categoria, Ubicacion:u.nombre,
+      Botellas:Number(s.botellas), Ml_abiertos:Number(s.ml_abiertos),
+      Bot_equivalentes:r1(Number(s.botellas) + Number(s.ml_abiertos) / p.capacidad_ml),
+      Minimo:Number(p.stock_minimo), Bajo_minimo:bajoMinimo(p) ? 'SI' : 'NO' });
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Stock');
+  XLSX.writeFile(wb, `stock_barra_${hoy()}.xlsx`);
+}
+
+/* =====================================================================
+   MOVIMIENTOS
+   ===================================================================== */
+function renderMovForm(){
+  const tipos = PERMISOS[S.user.rol].tipos;
+  $('mvTipo').innerHTML = tipos.map(t => `<option>${t}</option>`).join('');
+  mvTipoChanged();
+}
+function mvTipoChanged(){
+  const t = $('mvTipo').value;
+  $('mvDestinoBox').style.display = (t === 'traslado') ? '' : 'none';
+  $('mvOrigenLbl').textContent = (t === 'entrada') ? 'Ubicación de ingreso' : (t === 'traslado' ? 'Origen' : 'Ubicación');
+  mvProdChanged();
+}
+function mvProdChanged(){
+  const p = prodDe(Number($('mvProd').value));
+  if (!p) { $('mvHint').textContent = ''; return; }
+  const ubi = Number($('mvOrigen').value);
+  const s = stockRow(p.id, ubi);
+  $('mvHint').textContent = `Disponible en ${ubiDe(ubi)?.nombre ?? '—'}: ${r1(s?.botellas ?? 0)} botellas + ${fmtMl(s?.ml_abiertos ?? 0)} abiertos · 1 oz = ${OZ} ml`;
+}
+$('mvOrigen')?.addEventListener('change', mvProdChanged);
+
+/* Descuento en cascada: primero ml abiertos, luego abre botellas cerradas */
+function descontar(row, mlPedidos, capacidad){
+  let bot = Number(row.botellas), abiertos = Number(row.ml_abiertos), falta = mlPedidos;
+  const usa = Math.min(abiertos, falta); abiertos -= usa; falta -= usa;
+  while (falta > 1e-9 && bot > 0) {
+    bot -= 1; abiertos += capacidad;
+    const u = Math.min(abiertos, falta); abiertos -= u; falta -= u;
+  }
+  if (falta > 1e-6) return null;
+  return { botellas:bot, ml_abiertos:r1(abiertos) };
+}
+
+async function getStockRow(prodId, ubiId){
+  let s = stockRow(prodId, ubiId);
+  if (s) return s;
+  const { data, error } = await sbClient.from('barra_stock')
+    .insert({ producto_id:prodId, ubicacion_id:ubiId, botellas:0, ml_abiertos:0 }).select().single();
+  if (error) throw error;
+  S.stock.push(data);
+  return data;
+}
+async function setStock(row, botellas, ml){
+  const { error } = await sbClient.from('barra_stock')
+    .update({ botellas, ml_abiertos:ml, updated_at:new Date().toISOString() }).eq('id', row.id);
+  if (error) throw error;
+  row.botellas = botellas; row.ml_abiertos = ml;
+}
+
+async function guardarMovimiento(){
+  const tipo = $('mvTipo').value;
+  const prod = prodDe(Number($('mvProd').value));
+  if (!prod) return toast('Selecciona un producto.', 'bad');
+  const origen = Number($('mvOrigen').value);
+  const destino = tipo === 'traslado' ? Number($('mvDestino').value) : null;
+  if (tipo === 'traslado' && origen === destino) return toast('Origen y destino no pueden ser iguales.', 'bad');
+  let botellas = Math.max(0, Number($('mvBot').value) || 0);
+  let ml = Math.max(0, Number($('mvMl').value) || 0);
+  if ($('mvUnidad').value === 'oz') ml = r1(ml * OZ);
+  if (botellas === 0 && ml === 0) return toast('Indica botellas y/o cantidad suelta.', 'bad');
+  const motivo = $('mvMotivo').value.trim();
+  const cap = Number(prod.capacidad_ml);
+
+  try {
+    if (tipo === 'entrada') {
+      const d = await getStockRow(prod.id, origen);
+      await setStock(d, Number(d.botellas) + botellas, r1(Number(d.ml_abiertos) + ml));
+    } else if (tipo === 'salida' || tipo === 'merma') {
+      const o = await getStockRow(prod.id, origen);
+      if (botellas > Number(o.botellas)) return toast('No hay suficientes botellas cerradas.', 'bad');
+      let base = { botellas:Number(o.botellas) - botellas, ml_abiertos:Number(o.ml_abiertos) };
+      if (ml > 0) {
+        const res = descontar(base, ml, cap);
+        if (!res) return toast('Stock insuficiente para esa cantidad.', 'bad');
+        base = res;
+      }
+      await setStock(o, base.botellas, base.ml_abiertos);
+    } else if (tipo === 'traslado') {
+      const o = await getStockRow(prod.id, origen);
+      if (botellas > Number(o.botellas)) return toast('No hay suficientes botellas cerradas en origen.', 'bad');
+      let base = { botellas:Number(o.botellas) - botellas, ml_abiertos:Number(o.ml_abiertos) };
+      if (ml > 0) {
+        const res = descontar(base, ml, cap);
+        if (!res) return toast('Stock insuficiente en origen.', 'bad');
+        base = res;
+      }
+      await setStock(o, base.botellas, base.ml_abiertos);
+      const d = await getStockRow(prod.id, destino);
+      await setStock(d, Number(d.botellas) + botellas, r1(Number(d.ml_abiertos) + ml));
+    }
+
+    const { data, error } = await sbClient.from('barra_movimientos').insert({
+      fecha:hoy(), tipo, producto_id:prod.id,
+      origen_id:tipo === 'entrada' ? null : origen,
+      destino_id:tipo === 'entrada' ? origen : destino,
+      botellas, ml, motivo, usuario:S.user.usuario
+    }).select().single();
+    if (error) throw error;
+    S.movimientos.unshift(data);
+
+    $('mvBot').value = 0; $('mvMl').value = 0; $('mvMotivo').value = '';
+    toast(`✔ ${tipo.charAt(0).toUpperCase() + tipo.slice(1)} registrada: ${prod.nombre}`);
+    mvProdChanged(); renderMovs();
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+
+function renderMovs(){
+  const d1 = $('fDesde').value, d2 = $('fHasta').value, ft = $('fTipo').value;
+  const lista = S.movimientos.filter(m =>
+    (!d1 || m.fecha >= d1) && (!d2 || m.fecha <= d2) && (!ft || m.tipo === ft)).slice(0, 250);
+  $('movBody').innerHTML = lista.map(m => {
+    const p = prodDe(m.producto_id);
+    const ruta = m.tipo === 'entrada'
+      ? `→ ${esc(ubiDe(m.destino_id)?.nombre ?? '')}`
+      : m.tipo === 'traslado'
+        ? `${esc(ubiDe(m.origen_id)?.nombre ?? '')} → ${esc(ubiDe(m.destino_id)?.nombre ?? '')}`
+        : esc(ubiDe(m.origen_id)?.nombre ?? '');
+    return `<tr>
+      <td class="num">${fmtFecha(m.fecha)}</td>
+      <td><span class="chip ${TIPO_CHIP[m.tipo] || ''}">${m.tipo}</span></td>
+      <td>${esc(p?.nombre ?? '#' + m.producto_id)}</td>
+      <td>${ruta}</td>
+      <td class="num">${r1(m.botellas)}</td>
+      <td class="num">${r1(m.ml)}</td>
+      <td>${esc(m.motivo ?? '')}</td>
+      <td class="muted">${esc(m.usuario)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" class="muted">Sin movimientos con esos filtros.</td></tr>`;
+}
+
+function exportMovsXLS(){
+  const d1 = $('fDesde').value, d2 = $('fHasta').value, ft = $('fTipo').value;
+  const filas = S.movimientos
+    .filter(m => (!d1 || m.fecha >= d1) && (!d2 || m.fecha <= d2) && (!ft || m.tipo === ft))
+    .map(m => ({ Fecha:m.fecha, Tipo:m.tipo, Producto:prodDe(m.producto_id)?.nombre ?? '',
+      Origen:ubiDe(m.origen_id)?.nombre ?? '', Destino:ubiDe(m.destino_id)?.nombre ?? '',
+      Botellas:Number(m.botellas), Ml:Number(m.ml), Motivo:m.motivo ?? '', Usuario:m.usuario }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Movimientos');
+  XLSX.writeFile(wb, `movimientos_barra_${hoy()}.xlsx`);
+}
+
+/* =====================================================================
+   CONTEO FÍSICO
+   ===================================================================== */
+function renderConteoView(){
+  $('cnHist').innerHTML = S.conteos.map(c => `<tr>
+    <td class="num">${fmtFecha(c.fecha)}</td>
+    <td>${esc(ubiDe(c.ubicacion_id)?.nombre ?? '')}</td>
+    <td>${esc(c.usuario)}</td>
+    <td class="muted">${esc(c.observacion ?? '')}</td>
+    <td><button class="btn small" onclick="verConteo(${c.id})">Ver detalle</button></td>
+  </tr>`).join('') || `<tr><td colspan="5" class="muted">Aún no hay conteos registrados.</td></tr>`;
+}
+
+function iniciarConteo(){
+  const ubiId = Number($('cnUbi').value);
+  const items = S.productos.filter(p => p.activo).map(p => {
+    const s = stockRow(p.id, ubiId);
+    return { prod:p, bt:Number(s?.botellas ?? 0), mt:Number(s?.ml_abiertos ?? 0), bf:Number(s?.botellas ?? 0), mf:Number(s?.ml_abiertos ?? 0) };
+  });
+  S.conteoActivo = { ubiId, items };
+  $('cnTitulo').textContent = 'Contando: ' + (ubiDe(ubiId)?.nombre ?? '');
+  $('cnPanel').style.display = 'block'; $('cnObs').value = '';
+  $('cnBody').innerHTML = items.map((it, i) => `<tr>
+    <td>${esc(it.prod.nombre)}<div class="muted" style="font-size:11px">${it.prod.capacidad_ml} ml/bot</div></td>
+    <td class="num muted">${r1(it.bt)} / ${r1(it.mt)}</td>
+    <td class="num"><input class="inpMini" type="number" min="0" step="any" value="${it.bf}" oninput="cnEdit(${i},'bf',this.value)"></td>
+    <td class="num"><input class="inpMini" type="number" min="0" step="any" value="${it.mf}" oninput="cnEdit(${i},'mf',this.value)"></td>
+    <td class="num" id="cnDif${i}">0</td>
+  </tr>`).join('');
+  $('cnPanel').scrollIntoView({ behavior:'smooth' });
+}
+function cnEdit(i, campo, val){
+  const it = S.conteoActivo.items[i];
+  it[campo] = Math.max(0, Number(val) || 0);
+  const cap = Number(it.prod.capacidad_ml);
+  const dif = (it.bf * cap + it.mf) - (it.bt * cap + it.mt);
+  const cel = $('cnDif' + i);
+  cel.textContent = (dif > 0 ? '+' : '') + r1(dif);
+  cel.className = 'num ' + (dif > 0.01 ? 'diffPos' : dif < -0.01 ? 'diffNeg' : 'muted');
+}
+function cancelarConteo(){ S.conteoActivo = null; $('cnPanel').style.display = 'none'; }
+
+async function cerrarConteo(){
+  const c = S.conteoActivo; if (!c) return;
+  if (!confirm('¿Cerrar el conteo? El stock se ajustará a los valores físicos.')) return;
+  try {
+    const { data:cab, error:e1 } = await sbClient.from('barra_conteos').insert({
+      fecha:hoy(), ubicacion_id:c.ubiId, usuario:S.user.usuario, observacion:$('cnObs').value.trim()
+    }).select().single();
+    if (e1) throw e1;
+
+    const detalle = [], ajustes = [];
+    for (const it of c.items) {
+      const cap = Number(it.prod.capacidad_ml);
+      const dif = (it.bf * cap + it.mf) - (it.bt * cap + it.mt);
+      detalle.push({ conteo_id:cab.id, producto_id:it.prod.id,
+        botellas_teorico:it.bt, ml_teorico:it.mt, botellas_fisico:it.bf, ml_fisico:it.mf, diferencia_ml:r1(dif) });
+      if (Math.abs(dif) > 0.01) {
+        const row = await getStockRow(it.prod.id, c.ubiId);
+        await setStock(row, it.bf, r1(it.mf));
+        ajustes.push({ fecha:hoy(), tipo:'ajuste', producto_id:it.prod.id,
+          origen_id:c.ubiId, destino_id:null, botellas:r1(it.bf - it.bt), ml:r1(it.mf - it.mt),
+          motivo:'Ajuste por conteo #' + cab.id, usuario:S.user.usuario });
+      }
+    }
+    const { error:e2 } = await sbClient.from('barra_conteo_detalle').insert(detalle);
+    if (e2) throw e2;
+    if (ajustes.length) {
+      const { data:mvs, error:e3 } = await sbClient.from('barra_movimientos').insert(ajustes).select();
+      if (e3) throw e3;
+      S.movimientos.unshift(...mvs);
+    }
+    S.conteos.unshift(cab);
+    cancelarConteo();
+    toast(`✔ Conteo cerrado. ${ajustes.length} producto(s) ajustado(s).`);
+    renderConteoView();
+  } catch (e) { toast('Error al cerrar conteo: ' + e.message, 'bad'); }
+}
+
+async function verConteo(id){
+  const c = S.conteos.find(x => x.id === id);
+  const { data, error } = await sbClient.from('barra_conteo_detalle').select('*').eq('conteo_id', id);
+  if (error) return toast('Error: ' + error.message, 'bad');
+  $('cdTit').textContent = `Conteo ${fmtFecha(c.fecha)} · ${ubiDe(c.ubicacion_id)?.nombre ?? ''}`;
+  $('cdBody').innerHTML = data.map(d => {
+    const dif = Number(d.diferencia_ml);
+    return `<tr>
+      <td>${esc(prodDe(d.producto_id)?.nombre ?? '#' + d.producto_id)}</td>
+      <td class="num muted">${r1(d.botellas_teorico)} / ${r1(d.ml_teorico)}</td>
+      <td class="num">${r1(d.botellas_fisico)} / ${r1(d.ml_fisico)}</td>
+      <td class="num ${dif > 0.01 ? 'diffPos' : dif < -0.01 ? 'diffNeg' : 'muted'}">${dif > 0 ? '+' : ''}${r1(dif)}</td>
+    </tr>`;
+  }).join('');
+  $('ovConteoDet').classList.add('on');
+}
+
+/* =====================================================================
+   PRODUCTOS (CRUD)
+   ===================================================================== */
+function renderProductos(){
+  const verInactivos = $('prVerInactivos').checked;
+  const lista = S.productos.filter(p => verInactivos || p.activo);
+  $('prBody').innerHTML = lista.map(p => `<tr style="${p.activo ? '' : 'opacity:.5'}">
+    <td>${esc(p.nombre)}</td>
+    <td><span class="chip">${esc(p.categoria)}</span></td>
+    <td class="num">${p.capacidad_ml}</td>
+    <td class="num">${r1(p.stock_minimo)}</td>
+    <td class="num">${fmtCLP(p.precio_costo)}</td>
+    <td>${p.activo ? '<span class="chip green">Activo</span>' : '<span class="chip red">Inactivo</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn small" onclick="abrirProducto(${p.id})">✏️</button>
+      <button class="btn small ${p.activo ? 'danger' : ''}" onclick="toggleProducto(${p.id})">${p.activo ? 'Desactivar' : 'Reactivar'}</button>
+      ${!p.activo ? `<button class="btn small danger" onclick="eliminarProducto(${p.id})">🗑</button>` : ''}
+    </td>
+  </tr>`).join('') || `<tr><td colspan="7" class="muted">Sin productos.</td></tr>`;
+}
+
+function abrirProducto(id){
+  S.editProdId = id;
+  const p = id ? prodDe(id) : null;
+  $('prModalTit').textContent = p ? 'Editar producto' : 'Nuevo producto';
+  $('pNombre').value = p?.nombre ?? '';
+  $('pCategoria').value = p?.categoria ?? 'Licores';
+  $('pCapacidad').value = p?.capacidad_ml ?? 750;
+  $('pMinimo').value = p?.stock_minimo ?? 2;
+  $('pCosto').value = p?.precio_costo ?? 0;
+  $('ovProducto').classList.add('on');
+}
+
+async function guardarProducto(){
+  const reg = {
+    nombre:$('pNombre').value.trim(), categoria:$('pCategoria').value,
+    capacidad_ml:Number($('pCapacidad').value) || 750,
+    stock_minimo:Number($('pMinimo').value) || 0,
+    precio_costo:Number($('pCosto').value) || 0,
+  };
+  if (!reg.nombre) return toast('El nombre es obligatorio.', 'bad');
+  try {
+    if (S.editProdId) {
+      const { error } = await sbClient.from('barra_productos').update(reg).eq('id', S.editProdId);
+      if (error) throw error;
+      Object.assign(prodDe(S.editProdId), reg);
+    } else {
+      const { data, error } = await sbClient.from('barra_productos').insert({ ...reg, activo:true }).select().single();
+      if (error) throw error;
+      S.productos.push(data);
+      S.productos.sort((a,b) => a.categoria.localeCompare(b.categoria) || a.nombre.localeCompare(b.nombre));
+    }
+    llenarSelects(); cerrarOverlay('ovProducto'); renderProductos();
+    toast('✔ Producto guardado');
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+
+async function toggleProducto(id){
+  const p = prodDe(id);
+  try {
+    const { error } = await sbClient.from('barra_productos').update({ activo:!p.activo }).eq('id', id);
+    if (error) throw error;
+    p.activo = !p.activo; llenarSelects(); renderProductos();
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+
+async function eliminarProducto(id){
+  const p = prodDe(id);
+  if (!confirm(`¿Eliminar definitivamente "${p.nombre}"? Solo es posible si no tiene movimientos.`)) return;
+  const { error } = await sbClient.from('barra_productos').delete().eq('id', id);
+  if (error) return toast('No se pudo eliminar (tiene historial). Mantenlo inactivo.', 'bad');
+  S.productos = S.productos.filter(x => x.id !== id);
+  S.stock = S.stock.filter(x => x.producto_id !== id);
+  llenarSelects(); renderProductos(); toast('✔ Producto eliminado');
+}
+
+/* =====================================================================
+   USUARIOS (solo supervisor)
+   ===================================================================== */
+async function renderUsuarios(){
+  const { data, error } = await sbClient.from('barra_usuarios').select('*').order('id');
+  if (error) return toast('Error: ' + error.message, 'bad');
+  S.usuarios = data;
+  $('usBody').innerHTML = data.map(u => `<tr style="${u.activo ? '' : 'opacity:.5'}">
+    <td>${esc(u.usuario)}</td><td>${esc(u.nombre)}</td>
+    <td><span class="chip ${u.rol === 'supervisor' ? 'amber' : u.rol === 'bodeguero' ? 'blue' : ''}">${u.rol}</span></td>
+    <td>${u.activo ? '<span class="chip green">Activo</span>' : '<span class="chip red">Inactivo</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn small" onclick="abrirUsuario(${u.id})">✏️</button>
+      <button class="btn small" onclick="toggleUsuario(${u.id})" ${u.id === S.user.id ? 'disabled' : ''}>${u.activo ? 'Desactivar' : 'Reactivar'}</button>
+    </td>
+  </tr>`).join('');
+}
+function abrirUsuario(id){
+  S.editUserId = id;
+  const u = id ? S.usuarios.find(x => x.id === id) : null;
+  $('usModalTit').textContent = u ? 'Editar usuario' : 'Nuevo usuario';
+  $('uUsuario').value = u?.usuario ?? ''; $('uClave').value = u?.clave ?? '';
+  $('uNombre').value = u?.nombre ?? ''; $('uRol').value = u?.rol ?? 'barman';
+  $('ovUsuario').classList.add('on');
+}
+async function guardarUsuario(){
+  const reg = { usuario:$('uUsuario').value.trim(), clave:$('uClave').value, nombre:$('uNombre').value.trim(), rol:$('uRol').value };
+  if (!reg.usuario || !reg.clave || !reg.nombre) return toast('Completa todos los campos.', 'bad');
+  try {
+    if (S.editUserId) {
+      const { error } = await sbClient.from('barra_usuarios').update(reg).eq('id', S.editUserId);
+      if (error) throw error;
+    } else {
+      const { error } = await sbClient.from('barra_usuarios').insert({ ...reg, activo:true });
+      if (error) throw error;
+    }
+    cerrarOverlay('ovUsuario'); renderUsuarios(); toast('✔ Usuario guardado');
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+async function toggleUsuario(id){
+  const u = S.usuarios.find(x => x.id === id);
+  const { error } = await sbClient.from('barra_usuarios').update({ activo:!u.activo }).eq('id', id);
+  if (error) return toast('Error: ' + error.message, 'bad');
+  renderUsuarios();
+}
+
+/* =====================================================================
+   ARRANQUE
+   ===================================================================== */
+window.addEventListener('DOMContentLoaded', async () => {
+  $('inPass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  const guardado = localStorage.getItem('barraDG_user');
+  if (guardado && sbClient) {
+    try { S.user = JSON.parse(guardado); await iniciarApp(); } catch { logout(); }
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+});
+</script>
+</body>
+</html>
