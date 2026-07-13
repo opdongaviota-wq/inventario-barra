@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Barra · Don Gaviota</title>
 <meta name="theme-color" content="#0C1A1D">
-<link rel="manifest" href='data:application/manifest+json,{"name":"Inventario Barra · Don Gaviota","short_name":"Barra DG","start_url":".","display":"standalone","background_color":"%230C1A1D","theme_color":"%230C1A1D","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%230C1A1D%27/%3E%3Crect x=%2740%27 y=%2712%27 width=%2720%27 height=%2718%27 rx=%274%27 fill=%27%23E9A13B%27/%3E%3Crect x=%2728%27 y=%2730%27 width=%2744%27 height=%2758%27 rx=%2710%27 fill=%27none%27 stroke=%27%23E9A13B%27 stroke-width=%276%27/%3E%3Crect x=%2734%27 y=%2758%27 width=%2732%27 height=%2724%27 rx=%275%27 fill=%27%23E9A13B%27/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any"}]}'>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -166,12 +168,8 @@ td.num,th.num{text-align:right}
 <div id="loginView">
   <div class="loginCard">
     <div class="brandMark">
-      <svg width="46" height="46" viewBox="0 0 100 100" aria-hidden="true">
-        <rect width="100" height="100" rx="22" fill="#132528"/>
-        <rect x="40" y="12" width="20" height="18" rx="4" fill="#E9A13B"/>
-        <rect x="28" y="30" width="44" height="58" rx="10" fill="none" stroke="#E9A13B" stroke-width="6"/>
-        <rect x="34" y="58" width="32" height="24" rx="5" fill="#E9A13B"/>
-      </svg>
+      <img src="icon-192.png" width="46" height="46" alt="" style="border-radius:11px"
+           onerror="this.style.display='none'">
       <h1>Barra<small>Inventario de líquidos · Don Gaviota</small></h1>
     </div>
     <div id="cfgWarn" class="warn" style="display:none">
@@ -258,6 +256,40 @@ td.num,th.num{text-align:right}
         <div class="tableWrap"><table>
           <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Origen → Destino</th><th class="num">Botellas</th><th class="num">ml</th><th>Motivo</th><th>Usuario</th></tr></thead>
           <tbody id="movBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== PRODUCCIÓN ===== -->
+    <section class="view" id="view-produccion">
+      <div class="panel">
+        <h2>🍸 Producir cóctel</h2>
+        <div class="rowflex">
+          <div class="field" style="flex:2"><label>Receta</label><select id="prodReceta" onchange="prodRecetaChanged()"></select></div>
+          <div class="field"><label>Ubicación</label><select id="prodUbi" onchange="prodRecetaChanged()"></select></div>
+          <div class="field" style="max-width:140px"><label>Litros a producir</label><input id="prodLitros" type="number" min="0" step="any" oninput="prodRecetaChanged()"></div>
+        </div>
+        <div id="prodDetalle" style="margin-top:12px"></div>
+        <div class="rowflex" style="margin-top:12px">
+          <div class="field" style="flex:2"><label>Observación</label><input id="prodObs" placeholder="Opcional: turno, evento…"></div>
+          <button class="btn primary" id="btnProducir" onclick="producir()">Registrar producción</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="rowflex" style="margin-bottom:10px">
+          <h2 style="margin:0; flex:1">Recetas</h2>
+          <button class="btn primary small" id="btnNuevaReceta" onclick="abrirReceta(null)">＋ Nueva receta</button>
+        </div>
+        <div id="recetasList"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Historial de producción</h2>
+        <div id="prodResumenHoy" class="muted" style="font-size:13px; margin-bottom:10px"></div>
+        <div class="tableWrap"><table>
+          <thead><tr><th>Fecha</th><th>Receta</th><th>Ubicación</th><th class="num">Litros</th><th>Observación</th><th>Usuario</th></tr></thead>
+          <tbody id="prodHist"></tbody>
         </table></div>
       </div>
     </section>
@@ -363,6 +395,26 @@ td.num,th.num{text-align:right}
   </div>
 </div>
 
+<!-- ===== MODAL RECETA ===== -->
+<div class="overlay" id="ovReceta">
+  <div class="modal" style="max-width:620px">
+    <h3 id="rcModalTit">Nueva receta</h3>
+    <div class="grid g2">
+      <div class="field"><label>Nombre de la receta</label><input id="rNombre" placeholder="Ej: PISCO SOUR · lote 5 L"></div>
+      <div class="field"><label>Rinde (ml por lote)</label><input id="rRendimiento" type="number" min="1" step="any" value="5000"></div>
+    </div>
+    <div class="field"><label>Producto que genera (debe existir en el catálogo, categoría Preparados)</label>
+      <select id="rSalida"></select></div>
+    <label style="margin-top:4px">Ingredientes por lote</label>
+    <div id="rIngRows"></div>
+    <button class="btn small" onclick="addIngRow()" style="margin-top:6px">＋ Agregar ingrediente</button>
+    <div class="actions">
+      <button class="btn" onclick="cerrarOverlay('ovReceta')">Cancelar</button>
+      <button class="btn primary" onclick="guardarReceta()">Guardar receta</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL DETALLE CONTEO ===== -->
 <div class="overlay" id="ovConteoDet">
   <div class="modal" style="max-width:640px">
@@ -392,16 +444,17 @@ if (!SUPABASE_ANON_KEY.startsWith('PEGA_AQUI')) {
 }
 
 const OZ = 29.5735;
-const CATEGORIAS = ['Bajativos y Licores','Bebidas y Aguas','Cervezas','Destilados','Vino Blanco','Vino Otras Cepas','Vino Tinto','Espumantes'];
+const CATEGORIAS = ['Bajativos y Licores','Bebidas y Aguas','Cervezas','Destilados','Vino Blanco','Vino Otras Cepas','Vino Tinto','Espumantes','Preparados','Insumos'];
 const PERMISOS = {
-  barman:     { tabs:['dashboard','stock','movimientos'],                                tipos:['salida','merma'] },
-  bodeguero:  { tabs:['dashboard','stock','movimientos','conteo'],                       tipos:['entrada','salida','merma','traslado'] },
-  supervisor: { tabs:['dashboard','stock','movimientos','conteo','productos','usuarios'],tipos:['entrada','salida','merma','traslado'] },
+  barman:     { tabs:['dashboard','stock','movimientos','produccion'],                                tipos:['salida','merma'] },
+  bodeguero:  { tabs:['dashboard','stock','movimientos','produccion','conteo'],                       tipos:['entrada','salida','merma','traslado'] },
+  supervisor: { tabs:['dashboard','stock','movimientos','produccion','conteo','productos','usuarios'],tipos:['entrada','salida','merma','traslado'] },
 };
-const TAB_LABELS = { dashboard:'Dashboard', stock:'Stock', movimientos:'Movimientos', conteo:'Conteo', productos:'Productos', usuarios:'Usuarios' };
-const TIPO_CHIP = { entrada:'green', salida:'blue', merma:'red', traslado:'amber', ajuste:'' };
+const TAB_LABELS = { dashboard:'Dashboard', stock:'Stock', movimientos:'Movimientos', produccion:'Producción', conteo:'Conteo', productos:'Productos', usuarios:'Usuarios' };
+const TIPO_CHIP = { entrada:'green', salida:'blue', merma:'red', traslado:'amber', ajuste:'', produccion:'green' };
+const UNIDADES_ING = { ml:'ml', g:'g', un:'un' };
 
-const S = { user:null, productos:[], ubicaciones:[], stock:[], movimientos:[], conteos:[], conteoActivo:null, editProdId:null, editUserId:null };
+const S = { user:null, productos:[], ubicaciones:[], stock:[], movimientos:[], conteos:[], recetas:[], ingredientes:[], producciones:[], conteoActivo:null, editProdId:null, editUserId:null, editRecetaId:null };
 let chMov = null, chMerma = null, rtChannel = null;
 
 /* ---------- helpers ---------- */
@@ -487,7 +540,7 @@ function irA(tab){
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('on'));
   $('view-' + tab).classList.add('on');
   $('tab-' + tab).classList.add('on');
-  ({ dashboard:renderDashboard, stock:renderStock, movimientos:renderMovForm, conteo:renderConteoView, productos:renderProductos, usuarios:renderUsuarios })[tab]();
+  ({ dashboard:renderDashboard, stock:renderStock, movimientos:renderMovForm, produccion:renderProduccion, conteo:renderConteoView, productos:renderProductos, usuarios:renderUsuarios })[tab]();
   if (tab === 'movimientos') renderMovs();
 }
 
@@ -495,15 +548,22 @@ function irA(tab){
    CARGA DE DATOS + REALTIME
    ===================================================================== */
 async function cargarTodo(){
-  const [pr, ub, st, mv, cn] = await Promise.all([
+  const [pr, ub, st, mv, cn, rc, ri, pd] = await Promise.all([
     sbClient.from('barra_productos').select('*').order('categoria').order('nombre'),
     sbClient.from('barra_ubicaciones').select('*').eq('activo', true).order('id'),
     sbClient.from('barra_stock').select('*'),
     sbClient.from('barra_movimientos').select('*').order('created_at', { ascending:false }).limit(600),
     sbClient.from('barra_conteos').select('*').order('created_at', { ascending:false }).limit(60),
+    sbClient.from('barra_recetas').select('*').order('nombre'),
+    sbClient.from('barra_receta_ingredientes').select('*'),
+    sbClient.from('barra_producciones').select('*').order('created_at', { ascending:false }).limit(120),
   ]);
   for (const r of [pr,ub,st,mv,cn]) if (r.error) { toast('Error cargando datos: ' + r.error.message, 'bad'); return; }
   S.productos = pr.data; S.ubicaciones = ub.data; S.stock = st.data; S.movimientos = mv.data; S.conteos = cn.data;
+  S.recetas = rc.error ? [] : rc.data;          // tolerante si aún no se ejecuta el patch v2
+  S.ingredientes = ri.error ? [] : ri.data;
+  S.producciones = pd.error ? [] : pd.data;
+  if (rc.error) console.warn('Módulo producción: ejecuta patch_v2_produccion.sql en Supabase');
   localStorage.setItem('barraDG_cache', JSON.stringify({ t:Date.now(), stock:st.data, productos:pr.data }));
   llenarSelects();
 }
@@ -533,6 +593,12 @@ function llenarSelects(){
   $('pCategoria').innerHTML = CATEGORIAS.map(c => `<option>${c}</option>`).join('');
   $('mvProd').innerHTML = `<option value="">— Selecciona —</option>` +
     S.productos.filter(p => p.activo).map(p => `<option value="${p.id}">${esc(p.nombre)} (${p.capacidad_ml} ml)</option>`).join('');
+  $('prodUbi').innerHTML = opsUbi;
+  $('prodReceta').innerHTML = `<option value="">— Selecciona —</option>` +
+    S.recetas.filter(r => r.activo).map(r => `<option value="${r.id}">${esc(r.nombre)}</option>`).join('');
+  $('rSalida').innerHTML = S.productos.filter(p => p.activo && p.categoria === 'Preparados')
+    .map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('')
+    || `<option value="">(crea primero un producto en categoría Preparados)</option>`;
 }
 
 /* =====================================================================
@@ -813,6 +879,227 @@ function exportMovsXLS(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Movimientos');
   XLSX.writeFile(wb, `movimientos_barra_${hoy()}.xlsx`);
+}
+
+/* =====================================================================
+   PRODUCCIÓN DE CÓCTELES
+   ===================================================================== */
+function ingsDe(recetaId){ return S.ingredientes.filter(i => i.receta_id === recetaId); }
+
+function renderProduccion(){
+  const esSup = S.user.rol === 'supervisor';
+  $('btnNuevaReceta').style.display = esSup ? '' : 'none';
+  if (!S.recetas.length && S.productos.length) {
+    $('recetasList').innerHTML = `<p class="muted">No hay recetas aún.${esSup ? ' Crea la primera con “＋ Nueva receta”.' : ''}
+      ${!S.ingredientes.length ? '<br><b>Nota:</b> si acabas de actualizar, ejecuta <code>patch_v2_produccion.sql</code> en Supabase.' : ''}</p>`;
+  } else {
+    $('recetasList').innerHTML = S.recetas.map(r => {
+      const salida = prodDe(r.producto_salida_id);
+      const ings = ingsDe(r.id).map(i =>
+        `<span class="chip">${esc(prodDe(i.producto_id)?.nombre ?? '?')}: ${r1(i.cantidad)} ${i.unidad}</span>`).join(' ');
+      return `<div class="stockCard" style="${r.activo ? '' : 'opacity:.5'}">
+        <div class="info">
+          <div class="name">🍸 ${esc(r.nombre)} ${r.activo ? '' : '<span class="chip red">Inactiva</span>'}</div>
+          <div class="meta">Rinde ${fmtMl(r.rendimiento_ml)} de ${esc(salida?.nombre ?? '?')}</div>
+          <div class="ubChips">${ings}</div>
+        </div>
+        ${esSup ? `<div class="qty">
+          <button class="btn small" onclick="abrirReceta(${r.id})">✏️</button>
+          <button class="btn small ${r.activo ? 'danger' : ''}" onclick="toggleReceta(${r.id})">${r.activo ? 'Desactivar' : 'Reactivar'}</button>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  prodRecetaChanged();
+  renderProdHistorial();
+}
+
+function prodRecetaChanged(){
+  const r = S.recetas.find(x => x.id === Number($('prodReceta').value));
+  const box = $('prodDetalle');
+  if (!r) { box.innerHTML = ''; $('btnProducir').disabled = true; return; }
+  const litros = Number($('prodLitros').value) || 0;
+  const mlProd = litros * 1000;
+  const factor = mlProd > 0 ? mlProd / Number(r.rendimiento_ml) : 0;
+  const ubi = Number($('prodUbi').value);
+  let todoOk = mlProd > 0;
+  const filas = ingsDe(r.id).map(i => {
+    const p = prodDe(i.producto_id);
+    const req = Number(i.cantidad) * factor;
+    const s = stockRow(p.id, ubi);
+    let disp, ok;
+    if (i.unidad === 'un') {
+      disp = Number(s?.botellas ?? 0); ok = disp >= req - 1e-9;
+      var dispTxt = r1(disp) + ' un', reqTxt = r1(req) + ' un';
+    } else {
+      disp = Number(s?.botellas ?? 0) * Number(p.capacidad_ml) + Number(s?.ml_abiertos ?? 0);
+      ok = disp >= req - 1e-9;
+      var dispTxt = fmtMl(disp).replace(' ml',' ' + i.unidad).replace(' L', i.unidad === 'g' ? ' kg' : ' L'),
+          reqTxt = fmtMl(req).replace(' ml',' ' + i.unidad).replace(' L', i.unidad === 'g' ? ' kg' : ' L');
+    }
+    if (!ok) todoOk = false;
+    return `<tr>
+      <td>${esc(p?.nombre ?? '?')}</td>
+      <td class="num">${mlProd > 0 ? reqTxt : '—'}</td>
+      <td class="num ${ok ? '' : 'diffNeg'}">${dispTxt} ${ok ? '✓' : '✗ insuficiente'}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `<div class="tableWrap"><table>
+    <thead><tr><th>Ingrediente</th><th class="num">Requerido</th><th class="num">Disponible en ${esc(ubiDe(ubi)?.nombre ?? '')}</th></tr></thead>
+    <tbody>${filas}</tbody></table></div>
+    ${mlProd > 0 ? `<p class="muted" style="font-size:13px; margin-top:8px">Se producirán <b style="color:var(--amber)">${fmtMl(mlProd)}</b> de ${esc(prodDe(r.producto_salida_id)?.nombre ?? '')} (${r1(factor)} lote${factor === 1 ? '' : 's'}).</p>` : ''}`;
+  $('btnProducir').disabled = !todoOk;
+}
+
+async function producir(){
+  const r = S.recetas.find(x => x.id === Number($('prodReceta').value));
+  const ubi = Number($('prodUbi').value);
+  const litros = Number($('prodLitros').value) || 0;
+  const mlProd = r1(litros * 1000);
+  if (!r || mlProd <= 0) return toast('Selecciona receta y litros a producir.', 'bad');
+  const factor = mlProd / Number(r.rendimiento_ml);
+  const ings = ingsDe(r.id);
+  if (!ings.length) return toast('La receta no tiene ingredientes.', 'bad');
+
+  // Validación final contra stock
+  for (const i of ings) {
+    const p = prodDe(i.producto_id), req = Number(i.cantidad) * factor, s = stockRow(p.id, ubi);
+    const disp = i.unidad === 'un' ? Number(s?.botellas ?? 0)
+      : Number(s?.botellas ?? 0) * Number(p.capacidad_ml) + Number(s?.ml_abiertos ?? 0);
+    if (disp < req - 1e-9) return toast(`Stock insuficiente de ${p.nombre}.`, 'bad');
+  }
+  if (!confirm(`¿Registrar producción de ${fmtMl(mlProd)} de ${prodDe(r.producto_salida_id)?.nombre}? Se descontarán los ingredientes del stock.`)) return;
+
+  try {
+    const movs = [];
+    for (const i of ings) {
+      const p = prodDe(i.producto_id), req = r1(Number(i.cantidad) * factor);
+      const row = await getStockRow(p.id, ubi);
+      if (i.unidad === 'un') {
+        await setStock(row, r1(Number(row.botellas) - req), Number(row.ml_abiertos));
+        movs.push({ fecha:hoy(), tipo:'produccion', producto_id:p.id, origen_id:ubi, destino_id:null,
+          botellas:req, ml:0, motivo:'Consumo · ' + r.nombre, usuario:S.user.usuario });
+      } else {
+        const res = descontar(row, req, Number(p.capacidad_ml));
+        if (!res) throw new Error('Stock insuficiente de ' + p.nombre);
+        await setStock(row, res.botellas, res.ml_abiertos);
+        movs.push({ fecha:hoy(), tipo:'produccion', producto_id:p.id, origen_id:ubi, destino_id:null,
+          botellas:0, ml:req, motivo:'Consumo · ' + r.nombre, usuario:S.user.usuario });
+      }
+    }
+    // Producto terminado: entra como líquido a granel (ml abiertos)
+    const sal = await getStockRow(r.producto_salida_id, ubi);
+    await setStock(sal, Number(sal.botellas), r1(Number(sal.ml_abiertos) + mlProd));
+    movs.push({ fecha:hoy(), tipo:'produccion', producto_id:r.producto_salida_id, origen_id:null, destino_id:ubi,
+      botellas:0, ml:mlProd, motivo:'Producción · ' + r.nombre, usuario:S.user.usuario });
+
+    const { data:mvIns, error:e1 } = await sbClient.from('barra_movimientos').insert(movs).select();
+    if (e1) throw e1;
+    S.movimientos.unshift(...mvIns);
+    const { data:pd, error:e2 } = await sbClient.from('barra_producciones').insert({
+      fecha:hoy(), receta_id:r.id, ubicacion_id:ubi, ml_producidos:mlProd,
+      observacion:$('prodObs').value.trim(), usuario:S.user.usuario }).select().single();
+    if (e2) throw e2;
+    S.producciones.unshift(pd);
+
+    $('prodLitros').value = ''; $('prodObs').value = '';
+    toast(`✔ Producción registrada: ${fmtMl(mlProd)} de ${prodDe(r.producto_salida_id)?.nombre}`);
+    prodRecetaChanged(); renderProdHistorial();
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+
+function renderProdHistorial(){
+  const hoyStr = hoy();
+  const deHoy = S.producciones.filter(p => p.fecha === hoyStr);
+  if (deHoy.length) {
+    const porReceta = {};
+    deHoy.forEach(p => {
+      const n = S.recetas.find(r => r.id === p.receta_id)?.nombre ?? '?';
+      porReceta[n] = (porReceta[n] || 0) + Number(p.ml_producidos);
+    });
+    $('prodResumenHoy').innerHTML = '<b>Producido hoy:</b> ' +
+      Object.entries(porReceta).map(([n,ml]) => `${esc(n)} → <b style="color:var(--amber)">${fmtMl(ml)}</b>`).join(' · ');
+  } else $('prodResumenHoy').textContent = 'Sin producción registrada hoy.';
+
+  $('prodHist').innerHTML = S.producciones.map(p => `<tr>
+    <td class="num">${fmtFecha(p.fecha)}</td>
+    <td>${esc(S.recetas.find(r => r.id === p.receta_id)?.nombre ?? '?')}</td>
+    <td>${esc(ubiDe(p.ubicacion_id)?.nombre ?? '')}</td>
+    <td class="num">${r1(p.ml_producidos / 1000)}</td>
+    <td class="muted">${esc(p.observacion ?? '')}</td>
+    <td class="muted">${esc(p.usuario)}</td>
+  </tr>`).join('') || `<tr><td colspan="6" class="muted">Aún no hay producciones.</td></tr>`;
+}
+
+/* ----- CRUD de recetas (supervisor) ----- */
+let rIngs = [];
+function abrirReceta(id){
+  S.editRecetaId = id;
+  const r = id ? S.recetas.find(x => x.id === id) : null;
+  $('rcModalTit').textContent = r ? 'Editar receta' : 'Nueva receta';
+  $('rNombre').value = r?.nombre ?? '';
+  $('rRendimiento').value = r?.rendimiento_ml ?? 5000;
+  if (r) $('rSalida').value = r.producto_salida_id;
+  rIngs = r ? ingsDe(r.id).map(i => ({ producto_id:i.producto_id, cantidad:i.cantidad, unidad:i.unidad }))
+            : [{ producto_id:'', cantidad:'', unidad:'ml' }];
+  renderIngRows();
+  $('ovReceta').classList.add('on');
+}
+function renderIngRows(){
+  const ops = S.productos.filter(p => p.activo && p.categoria !== 'Preparados')
+    .map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
+  $('rIngRows').innerHTML = rIngs.map((i, idx) => `
+    <div class="rowflex" style="margin-bottom:8px">
+      <div class="field" style="flex:3"><select onchange="rIngs[${idx}].producto_id=Number(this.value)">
+        <option value="">— Ingrediente —</option>${ops}</select></div>
+      <div class="field" style="max-width:110px"><input type="number" min="0" step="any" placeholder="Cant."
+        value="${i.cantidad}" oninput="rIngs[${idx}].cantidad=this.value"></div>
+      <div class="field" style="max-width:80px"><select onchange="rIngs[${idx}].unidad=this.value">
+        ${Object.keys(UNIDADES_ING).map(u => `<option ${i.unidad === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+      <button class="btn small danger" onclick="rIngs.splice(${idx},1);renderIngRows()">✕</button>
+    </div>`).join('');
+  // reponer valores de los selects de producto
+  document.querySelectorAll('#rIngRows .rowflex').forEach((row, idx) => {
+    if (rIngs[idx].producto_id) row.querySelector('select').value = rIngs[idx].producto_id;
+  });
+}
+function addIngRow(){ rIngs.push({ producto_id:'', cantidad:'', unidad:'ml' }); renderIngRows(); }
+
+async function guardarReceta(){
+  const reg = { nombre:$('rNombre').value.trim(), producto_salida_id:Number($('rSalida').value),
+                rendimiento_ml:Number($('rRendimiento').value) };
+  if (!reg.nombre || !reg.producto_salida_id || !(reg.rendimiento_ml > 0))
+    return toast('Completa nombre, producto de salida y rendimiento.', 'bad');
+  const ings = rIngs.filter(i => i.producto_id && Number(i.cantidad) > 0)
+    .map(i => ({ producto_id:Number(i.producto_id), cantidad:Number(i.cantidad), unidad:i.unidad }));
+  if (!ings.length) return toast('Agrega al menos un ingrediente con cantidad.', 'bad');
+  try {
+    let recetaId = S.editRecetaId;
+    if (recetaId) {
+      const { error } = await sbClient.from('barra_recetas').update(reg).eq('id', recetaId);
+      if (error) throw error;
+      await sbClient.from('barra_receta_ingredientes').delete().eq('receta_id', recetaId);
+    } else {
+      const { data, error } = await sbClient.from('barra_recetas').insert({ ...reg, activo:true }).select().single();
+      if (error) throw error;
+      recetaId = data.id;
+    }
+    const { error:e2 } = await sbClient.from('barra_receta_ingredientes')
+      .insert(ings.map(i => ({ ...i, receta_id:recetaId })));
+    if (e2) throw e2;
+    const [rc, ri] = await Promise.all([
+      sbClient.from('barra_recetas').select('*').order('nombre'),
+      sbClient.from('barra_receta_ingredientes').select('*')]);
+    S.recetas = rc.data ?? []; S.ingredientes = ri.data ?? [];
+    llenarSelects(); cerrarOverlay('ovReceta'); renderProduccion();
+    toast('✔ Receta guardada');
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+async function toggleReceta(id){
+  const r = S.recetas.find(x => x.id === id);
+  const { error } = await sbClient.from('barra_recetas').update({ activo:!r.activo }).eq('id', id);
+  if (error) return toast('Error: ' + error.message, 'bad');
+  r.activo = !r.activo; llenarSelects(); renderProduccion();
 }
 
 /* =====================================================================

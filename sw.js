@@ -1,6 +1,6 @@
 /* Service Worker · Inventario Barra Don Gaviota */
-const CACHE = 'barra-dg-v1';
-const SHELL = ['./', './index.html'];
+const CACHE = 'barra-dg-v2';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
