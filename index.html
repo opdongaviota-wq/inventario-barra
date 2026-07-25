@@ -232,7 +232,7 @@ td.num,th.num{text-align:right}
           <div class="field" id="mvDestinoBox" style="display:none"><label>Destino</label><select id="mvDestino"></select></div>
         </div>
         <div class="rowflex" style="margin-top:10px">
-          <div class="field"><label>Botellas completas</label><input id="mvBot" type="number" min="0" step="1" value="0"></div>
+          <div class="field"><label id="mvBotLbl">Botellas completas</label><input id="mvBot" type="number" min="0" step="1" value="0"></div>
           <div class="field"><label>Cantidad suelta</label><input id="mvMl" type="number" min="0" step="any" value="0"></div>
           <div class="field" style="max-width:110px"><label>Unidad</label>
             <select id="mvUnidad"><option value="ml">ml</option><option value="oz">oz</option></select>
@@ -307,7 +307,7 @@ td.num,th.num{text-align:right}
         <h2 id="cnTitulo"></h2>
         <p class="muted" style="font-size:13px; margin-bottom:10px">Ingresa lo contado físicamente. Al cerrar, el stock se ajusta al valor físico y las diferencias quedan registradas como <b>ajuste</b>.</p>
         <div class="tableWrap"><table>
-          <thead><tr><th>Producto</th><th class="num">Teórico<br>(bot / ml)</th><th class="num">Físico bot.</th><th class="num">Físico ml</th><th class="num">Dif. total ml</th></tr></thead>
+          <thead><tr><th>Producto</th><th class="num">Teórico</th><th class="num">Físico<br>bot / un</th><th class="num">Físico ml<br>(bot. abierta)</th><th class="num">Diferencia</th></tr></thead>
           <tbody id="cnBody"></tbody>
         </table></div>
         <div class="rowflex" style="margin-top:14px">
@@ -368,6 +368,10 @@ td.num,th.num{text-align:right}
       <div class="field"><label>Capacidad por botella (ml)</label><input id="pCapacidad" type="number" min="1" step="any" value="750"></div>
       <div class="field"><label>Stock mínimo (botellas)</label><input id="pMinimo" type="number" min="0" step="any" value="2"></div>
       <div class="field"><label>Costo por botella (CLP)</label><input id="pCosto" type="number" min="0" step="1" value="0"></div>
+      <div class="field" style="grid-column:1/-1"><label>Control de stock</label><select id="pControl">
+        <option value="ml">Botella + ml (se sirve por copa)</option>
+        <option value="unidad">Solo unidades (se vende cerrado)</option>
+      </select></div>
     </div>
     <div class="actions">
       <button class="btn" onclick="cerrarOverlay('ovProducto')">Cancelar</button>
@@ -697,6 +701,7 @@ function renderStock(){
     (!cat || p.categoria === cat) && (!q || p.nombre.toLowerCase().includes(q)));
 
   $('stockList').innerHTML = lista.map(p => {
+    const esUnidad = (p.control || 'ml') === 'unidad';
     const agg = stockAgg(p.id, ubiId);
     const eq = botEq(p, agg);
     const low = bajoMinimo(p);
@@ -704,20 +709,24 @@ function renderStock(){
     const chipsUbi = !ubiId ? `<div class="ubChips">` + S.ubicaciones.map(u => {
         const s = stockRow(p.id, u.id);
         if (!s || (Number(s.botellas) === 0 && Number(s.ml_abiertos) === 0)) return '';
-        return `<span class="chip">${esc(u.nombre)}: ${r1(s.botellas)} bot${Number(s.ml_abiertos) ? ' + ' + fmtMl(s.ml_abiertos) : ''}</span>`;
+        return esUnidad
+          ? `<span class="chip">${esc(u.nombre)}: ${r1(s.botellas)} un</span>`
+          : `<span class="chip">${esc(u.nombre)}: ${r1(s.botellas)} cerradas${Number(s.ml_abiertos) ? ' + ' + fmtMl(s.ml_abiertos) + ' abierta' : ''}</span>`;
       }).join('') + `</div>` : '';
+    const qty = esUnidad
+      ? `<div class="bots num">${r1(agg.botellas)} <span style="font-size:14px; color:var(--muted)">un</span></div>
+         <div class="sub">unidades cerradas</div>`
+      : `<div class="bots num">${r1(agg.botellas)} <span style="font-size:14px; color:var(--muted)">bot</span></div>
+         <div class="sub num">${agg.ml > 0 ? '+ ' + fmtMl(agg.ml) + ' en abierta' : 'sin botella abierta'}</div>
+         <div class="sub num">≈ ${r1(eq)} bot. eq.</div>`;
     return `<div class="stockCard ${low ? 'low' : ''}">
-      <div class="bottleWrap">${bottleSVG(agg.ml > 0 ? Math.max(pctAbierta, .08) : 0)}</div>
+      <div class="bottleWrap">${bottleSVG(esUnidad ? (agg.botellas > 0 ? 1 : 0) : (agg.ml > 0 ? Math.max(pctAbierta, .08) : 0))}</div>
       <div class="info">
         <div class="name">${esc(p.nombre)} ${low ? '<span class="chip red">Bajo mínimo</span>' : ''}</div>
-        <div class="meta">${esc(p.categoria)} · ${p.capacidad_ml} ml/bot · mínimo ${r1(p.stock_minimo)} bot</div>
+        <div class="meta">${esc(p.categoria)} · ${esUnidad ? 'venta cerrada' : p.capacidad_ml + ' ml/bot'} · mínimo ${r1(p.stock_minimo)} ${esUnidad ? 'un' : 'bot'}</div>
         ${chipsUbi}
       </div>
-      <div class="qty">
-        <div class="bots num">${r1(agg.botellas)} <span style="font-size:14px; color:var(--muted)">bot</span></div>
-        <div class="sub num">${agg.ml > 0 ? '+ ' + fmtMl(agg.ml) + ' abiertos' : 'sin abiertas'}</div>
-        <div class="sub num">≈ ${r1(eq)} bot. eq.</div>
-      </div>
+      <div class="qty">${qty}</div>
     </div>`;
   }).join('') || `<div class="panel muted">No hay productos que coincidan con el filtro.</div>`;
 }
@@ -754,9 +763,16 @@ function mvTipoChanged(){
 function mvProdChanged(){
   const p = prodDe(Number($('mvProd').value));
   if (!p) { $('mvHint').textContent = ''; return; }
+  const esUnidad = (p.control || 'ml') === 'unidad';
+  $('mvBotLbl').textContent = esUnidad ? 'Unidades' : 'Botellas completas';
+  $('mvMl').parentElement.style.display = esUnidad ? 'none' : '';
+  $('mvUnidad').parentElement.style.display = esUnidad ? 'none' : '';
+  if (esUnidad) $('mvMl').value = 0;
   const ubi = Number($('mvOrigen').value);
   const s = stockRow(p.id, ubi);
-  $('mvHint').textContent = `Disponible en ${ubiDe(ubi)?.nombre ?? '—'}: ${r1(s?.botellas ?? 0)} botellas + ${fmtMl(s?.ml_abiertos ?? 0)} abiertos · 1 oz = ${OZ} ml`;
+  $('mvHint').textContent = esUnidad
+    ? `Disponible en ${ubiDe(ubi)?.nombre ?? '—'}: ${r1(s?.botellas ?? 0)} unidades (producto de venta cerrada, sin ml)`
+    : `Disponible en ${ubiDe(ubi)?.nombre ?? '—'}: ${r1(s?.botellas ?? 0)} botellas + ${fmtMl(s?.ml_abiertos ?? 0)} abiertos · 1 oz = ${OZ} ml`;
 }
 $('mvOrigen')?.addEventListener('change', mvProdChanged);
 
@@ -795,9 +811,10 @@ async function guardarMovimiento(){
   const origen = Number($('mvOrigen').value);
   const destino = tipo === 'traslado' ? Number($('mvDestino').value) : null;
   if (tipo === 'traslado' && origen === destino) return toast('Origen y destino no pueden ser iguales.', 'bad');
+  const esUnidad = (prod.control || 'ml') === 'unidad';
   let botellas = Math.max(0, Number($('mvBot').value) || 0);
-  let ml = Math.max(0, Number($('mvMl').value) || 0);
-  if ($('mvUnidad').value === 'oz') ml = r1(ml * OZ);
+  let ml = esUnidad ? 0 : Math.max(0, Number($('mvMl').value) || 0);
+  if (!esUnidad && $('mvUnidad').value === 'oz') ml = r1(ml * OZ);
   if (botellas === 0 && ml === 0) return toast('Indica botellas y/o cantidad suelta.', 'bad');
   const motivo = $('mvMotivo').value.trim();
   const cap = Number(prod.capacidad_ml);
@@ -1124,22 +1141,28 @@ function iniciarConteo(){
   S.conteoActivo = { ubiId, items };
   $('cnTitulo').textContent = 'Contando: ' + (ubiDe(ubiId)?.nombre ?? '');
   $('cnPanel').style.display = 'block'; $('cnObs').value = '';
-  $('cnBody').innerHTML = items.map((it, i) => `<tr>
-    <td>${esc(it.prod.nombre)}<div class="muted" style="font-size:11px">${it.prod.capacidad_ml} ml/bot</div></td>
-    <td class="num muted">${r1(it.bt)} / ${r1(it.mt)}</td>
+  $('cnBody').innerHTML = items.map((it, i) => {
+    const uni = (it.prod.control || 'ml') === 'unidad';
+    return `<tr>
+    <td>${esc(it.prod.nombre)}<div class="muted" style="font-size:11px">${uni ? 'venta cerrada · solo unidades' : it.prod.capacidad_ml + ' ml/bot'}</div></td>
+    <td class="num muted">${uni ? r1(it.bt) + ' un' : r1(it.bt) + ' / ' + r1(it.mt)}</td>
     <td class="num"><input class="inpMini" type="number" min="0" step="any" value="${it.bf}" oninput="cnEdit(${i},'bf',this.value)"></td>
-    <td class="num"><input class="inpMini" type="number" min="0" step="any" value="${it.mf}" oninput="cnEdit(${i},'mf',this.value)"></td>
+    <td class="num">${uni ? '<span class="muted">—</span>' : `<input class="inpMini" type="number" min="0" step="any" value="${it.mf}" oninput="cnEdit(${i},'mf',this.value)">`}</td>
     <td class="num" id="cnDif${i}">0</td>
-  </tr>`).join('');
+  </tr>`;}).join('');
   $('cnPanel').scrollIntoView({ behavior:'smooth' });
 }
 function cnEdit(i, campo, val){
   const it = S.conteoActivo.items[i];
   it[campo] = Math.max(0, Number(val) || 0);
+  const uni = (it.prod.control || 'ml') === 'unidad';
+  if (uni) it.mf = 0;
   const cap = Number(it.prod.capacidad_ml);
   const dif = (it.bf * cap + it.mf) - (it.bt * cap + it.mt);
   const cel = $('cnDif' + i);
-  cel.textContent = (dif > 0 ? '+' : '') + r1(dif);
+  cel.textContent = uni
+    ? ((it.bf - it.bt > 0 ? '+' : '') + r1(it.bf - it.bt) + ' un')
+    : ((dif > 0 ? '+' : '') + r1(dif));
   cel.className = 'num ' + (dif > 0.01 ? 'diffPos' : dif < -0.01 ? 'diffNeg' : 'muted');
 }
 function cancelarConteo(){ S.conteoActivo = null; $('cnPanel').style.display = 'none'; }
@@ -1228,6 +1251,7 @@ function abrirProducto(id){
   $('pCapacidad').value = p?.capacidad_ml ?? 750;
   $('pMinimo').value = p?.stock_minimo ?? 2;
   $('pCosto').value = p?.precio_costo ?? 0;
+  $('pControl').value = p?.control ?? 'ml';
   $('ovProducto').classList.add('on');
 }
 
@@ -1237,6 +1261,7 @@ async function guardarProducto(){
     capacidad_ml:Number($('pCapacidad').value) || 750,
     stock_minimo:Number($('pMinimo').value) || 0,
     precio_costo:Number($('pCosto').value) || 0,
+    control:$('pControl').value,
   };
   if (!reg.nombre) return toast('El nombre es obligatorio.', 'bad');
   try {
