@@ -776,6 +776,15 @@ function mvProdChanged(){
 }
 $('mvOrigen')?.addEventListener('change', mvProdChanged);
 
+/* Normalizar: si los ml acumulados equivalen a botellas enteras, se convierten */
+function normalizar(botellas, ml, cap){
+  if (cap > 0 && ml >= cap) {
+    botellas += Math.floor(ml / cap);
+    ml = r1(ml % cap);
+  }
+  return { botellas, ml_abiertos:r1(ml) };
+}
+
 /* Descuento en cascada: primero ml abiertos, luego abre botellas cerradas */
 function descontar(row, mlPedidos, capacidad){
   let bot = Number(row.botellas), abiertos = Number(row.ml_abiertos), falta = mlPedidos;
@@ -822,7 +831,8 @@ async function guardarMovimiento(){
   try {
     if (tipo === 'entrada') {
       const d = await getStockRow(prod.id, origen);
-      await setStock(d, Number(d.botellas) + botellas, r1(Number(d.ml_abiertos) + ml));
+      const n = normalizar(Number(d.botellas) + botellas, Number(d.ml_abiertos) + ml, cap);
+      await setStock(d, n.botellas, n.ml_abiertos);
     } else if (tipo === 'salida' || tipo === 'merma') {
       const o = await getStockRow(prod.id, origen);
       if (botellas > Number(o.botellas)) return toast('No hay suficientes botellas cerradas.', 'bad');
@@ -844,7 +854,8 @@ async function guardarMovimiento(){
       }
       await setStock(o, base.botellas, base.ml_abiertos);
       const d = await getStockRow(prod.id, destino);
-      await setStock(d, Number(d.botellas) + botellas, r1(Number(d.ml_abiertos) + ml));
+      const n = normalizar(Number(d.botellas) + botellas, Number(d.ml_abiertos) + ml, cap);
+      await setStock(d, n.botellas, n.ml_abiertos);
     }
 
     const { data, error } = await sbClient.from('barra_movimientos').insert({
@@ -1162,7 +1173,8 @@ function cnEdit(i, campo, val){
   const cel = $('cnDif' + i);
   cel.textContent = uni
     ? ((it.bf - it.bt > 0 ? '+' : '') + r1(it.bf - it.bt) + ' un')
-    : ((dif > 0 ? '+' : '') + r1(dif));
+    : ((dif > 0 ? '+' : '') + r1(dif)) + (it.mf >= cap ? ' ⚠︎' : '');
+  if (!uni && it.mf >= cap) cel.title = 'Los ml equivalen a botellas enteras: se convertirán al cerrar';
   cel.className = 'num ' + (dif > 0.01 ? 'diffPos' : dif < -0.01 ? 'diffNeg' : 'muted');
 }
 function cancelarConteo(){ S.conteoActivo = null; $('cnPanel').style.display = 'none'; }
@@ -1184,7 +1196,8 @@ async function cerrarConteo(){
         botellas_teorico:it.bt, ml_teorico:it.mt, botellas_fisico:it.bf, ml_fisico:it.mf, diferencia_ml:r1(dif) });
       if (Math.abs(dif) > 0.01) {
         const row = await getStockRow(it.prod.id, c.ubiId);
-        await setStock(row, it.bf, r1(it.mf));
+        const n = normalizar(it.bf, it.mf, cap);
+        await setStock(row, n.botellas, n.ml_abiertos);
         ajustes.push({ fecha:hoy(), tipo:'ajuste', producto_id:it.prod.id,
           origen_id:c.ubiId, destino_id:null, botellas:r1(it.bf - it.bt), ml:r1(it.mf - it.mt),
           motivo:'Ajuste por conteo #' + cab.id, usuario:S.user.usuario });
