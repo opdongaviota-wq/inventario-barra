@@ -983,10 +983,11 @@ function prodRecetaChanged(){
           reqTxt = fmtMl(req).replace(' ml',' ' + i.unidad).replace(' L', i.unidad === 'g' ? ' kg' : ' L');
     }
     if (!ok) todoOk = false;
+    const esBase = p?.categoria === 'Preparados';
     return `<tr>
-      <td>${esc(p?.nombre ?? '?')}</td>
+      <td>${esBase ? '🍸 ' : ''}${esc(p?.nombre ?? '?')}${esBase ? ' <span class="chip amber">base</span>' : ''}</td>
       <td class="num">${mlProd > 0 ? reqTxt : '—'}</td>
-      <td class="num ${ok ? '' : 'diffNeg'}">${dispTxt} ${ok ? '✓' : '✗ insuficiente'}</td>
+      <td class="num ${ok ? '' : 'diffNeg'}">${dispTxt} ${ok ? '✓' : (esBase ? '✗ produce primero esta base' : '✗ insuficiente')}</td>
     </tr>`;
   }).join('');
   box.innerHTML = `<div class="tableWrap"><table>
@@ -1091,8 +1092,8 @@ function abrirReceta(id){
   $('ovReceta').classList.add('on');
 }
 function renderIngRows(){
-  const ops = S.productos.filter(p => p.activo && p.categoria !== 'Preparados')
-    .map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
+  const ops = S.productos.filter(p => p.activo)
+    .map(p => `<option value="${p.id}">${p.categoria === 'Preparados' ? '🍸 ' : ''}${esc(p.nombre)}</option>`).join('');
   $('rIngRows').innerHTML = rIngs.map((i, idx) => `
     <div class="rowflex" style="margin-bottom:8px">
       <div class="field" style="flex:3"><select onchange="rIngs[${idx}].producto_id=Number(this.value)">
@@ -1118,6 +1119,8 @@ async function guardarReceta(){
   const ings = rIngs.filter(i => i.producto_id && Number(i.cantidad) > 0)
     .map(i => ({ producto_id:Number(i.producto_id), cantidad:Number(i.cantidad), unidad:i.unidad }));
   if (!ings.length) return toast('Agrega al menos un ingrediente con cantidad.', 'bad');
+  if (ings.some(i => i.producto_id === reg.producto_salida_id))
+    return toast('Una receta no puede usar su propio producto como ingrediente.', 'bad');
   try {
     let recetaId = S.editRecetaId;
     if (recetaId) {
