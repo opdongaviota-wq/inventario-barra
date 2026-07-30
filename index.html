@@ -254,7 +254,7 @@ td.num,th.num{text-align:right}
           <button class="btn small" onclick="exportMovsXLS()">📊 Excel</button>
         </div>
         <div class="tableWrap"><table>
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Origen → Destino</th><th class="num">Botellas</th><th class="num">ml</th><th>Motivo</th><th>Usuario</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Origen → Destino</th><th class="num">Botellas</th><th class="num">ml</th><th>Motivo</th><th>Usuario</th><th></th></tr></thead>
           <tbody id="movBody"></tbody>
         </table></div>
       </div>
@@ -901,17 +901,60 @@ function renderMovs(){
       : m.tipo === 'traslado'
         ? `${esc(ubiDe(m.origen_id)?.nombre ?? '')} → ${esc(ubiDe(m.destino_id)?.nombre ?? '')}`
         : esc(ubiDe(m.origen_id)?.nombre ?? '');
-    return `<tr>
+    const puedeAnular = S.user.rol === 'supervisor' && !m.anulado && m.tipo !== 'produccion';
+    return `<tr style="${m.anulado ? 'opacity:.45; text-decoration:line-through' : ''}">
       <td class="num">${fmtFecha(m.fecha)}</td>
-      <td><span class="chip ${TIPO_CHIP[m.tipo] || ''}">${m.tipo}</span></td>
+      <td><span class="chip ${TIPO_CHIP[m.tipo] || ''}">${m.tipo}</span>${m.anulado ? ' <span class="chip red" style="text-decoration:none">ANULADO</span>' : ''}</td>
       <td>${esc(p?.nombre ?? '#' + m.producto_id)}</td>
       <td>${ruta}</td>
       <td class="num">${r1(m.botellas)}</td>
       <td class="num">${r1(m.ml)}</td>
-      <td>${esc(m.motivo ?? '')}</td>
+      <td>${esc(m.motivo ?? '')}${m.anulado ? `<div class="muted" style="font-size:11px; text-decoration:none">Anulado por ${esc(m.anulado_por ?? '')}</div>` : ''}</td>
       <td class="muted">${esc(m.usuario)}</td>
+      <td>${puedeAnular ? `<button class="btn small danger" onclick="anularMovimiento(${m.id})">Anular</button>` : ''}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="8" class="muted">Sin movimientos con esos filtros.</td></tr>`;
+  }).join('') || `<tr><td colspan="9" class="muted">Sin movimientos con esos filtros.</td></tr>`;
+}
+
+/* Aplica un delta (puede ser negativo) al stock de un producto en una ubicación */
+async function aplicarDelta(prodId, ubiId, dBot, dMl, cap){
+  const row = await getStockRow(prodId, ubiId);
+  let b = Number(row.botellas) + dBot;
+  let ml = Number(row.ml_abiertos) + dMl;
+  while (ml < -1e-9 && b > 0) { b -= 1; ml += cap; }   // abrir botellas para cubrir ml negativos
+  if (b < -1e-9 || ml < -1e-9) return false;
+  const n = normalizar(Math.max(0, r1(b)), Math.max(0, ml), cap);
+  await setStock(row, n.botellas, n.ml_abiertos);
+  return true;
+}
+
+async function anularMovimiento(id){
+  const m = S.movimientos.find(x => x.id === id);
+  if (!m || m.anulado) return;
+  const p = prodDe(m.producto_id);
+  if (!p) return toast('Producto no encontrado.', 'bad');
+  if (!confirm(`¿Anular este movimiento de ${m.tipo} de "${p.nombre}"? Se revertirá su efecto en el stock y quedará marcado como anulado.`)) return;
+  const cap = Number(p.capacidad_ml), bot = Number(m.botellas), ml = Number(m.ml);
+  try {
+    let ok = true;
+    if (m.tipo === 'entrada') {
+      ok = await aplicarDelta(p.id, m.destino_id, -bot, -ml, cap);
+    } else if (m.tipo === 'salida' || m.tipo === 'merma') {
+      ok = await aplicarDelta(p.id, m.origen_id, bot, ml, cap);
+    } else if (m.tipo === 'traslado') {
+      ok = await aplicarDelta(p.id, m.destino_id, -bot, -ml, cap);
+      if (ok) ok = await aplicarDelta(p.id, m.origen_id, bot, ml, cap);
+    } else if (m.tipo === 'ajuste') {
+      ok = await aplicarDelta(p.id, m.origen_id, -bot, -ml, cap);   // bot/ml de ajustes son deltas con signo
+    }
+    if (!ok) return toast('No se puede anular: el stock actual quedaría en negativo. Revisa los movimientos posteriores.', 'bad');
+    const { error } = await sbClient.from('barra_movimientos')
+      .update({ anulado:true, anulado_por:S.user.usuario, anulado_at:new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+    m.anulado = true; m.anulado_por = S.user.usuario;
+    toast('✔ Movimiento anulado y stock revertido. Registra ahora el movimiento correcto.');
+    renderMovs();
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
 }
 
 function exportMovsXLS(){
@@ -920,7 +963,7 @@ function exportMovsXLS(){
     .filter(m => (!d1 || m.fecha >= d1) && (!d2 || m.fecha <= d2) && (!ft || m.tipo === ft))
     .map(m => ({ Fecha:m.fecha, Tipo:m.tipo, Producto:prodDe(m.producto_id)?.nombre ?? '',
       Origen:ubiDe(m.origen_id)?.nombre ?? '', Destino:ubiDe(m.destino_id)?.nombre ?? '',
-      Botellas:Number(m.botellas), Ml:Number(m.ml), Motivo:m.motivo ?? '', Usuario:m.usuario }));
+      Botellas:Number(m.botellas), Ml:Number(m.ml), Motivo:m.motivo ?? '', Usuario:m.usuario, Estado:m.anulado ? 'ANULADO' : 'OK' }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Movimientos');
   XLSX.writeFile(wb, `movimientos_barra_${hoy()}.xlsx`);
