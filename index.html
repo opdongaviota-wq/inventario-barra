@@ -459,7 +459,7 @@ if (!SUPABASE_ANON_KEY.startsWith('PEGA_AQUI')) {
 const OZ = 29.5735;
 const CATEGORIAS = ['Bajativos y Licores','Bebidas y Aguas','Cervezas','Destilados','Vino Blanco','Vino Otras Cepas','Vino Tinto','Espumantes','Preparados','Insumos'];
 const PERMISOS = {
-  barman:     { tabs:['dashboard','stock','movimientos','produccion'],                                tipos:['salida','merma'] },
+  barman:     { tabs:['dashboard','stock','movimientos','produccion','conteo'],                       tipos:['salida','merma'] },
   bodeguero:  { tabs:['dashboard','stock','movimientos','produccion','conteo'],                       tipos:['entrada','salida','merma','traslado'] },
   supervisor: { tabs:['dashboard','stock','movimientos','produccion','conteo','productos','usuarios'],tipos:['entrada','salida','merma','traslado'] },
 };
